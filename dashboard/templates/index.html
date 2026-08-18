@@ -776,17 +776,54 @@
     const role = data.role;
     const time = fmtTime(data.timestamp);
     const label = role === 'assistant' ? '🤖 Bot' : esc(data.user_name || 'User');
-    const isGif = data.content && data.content.startsWith('[GIF:');
+    const isBotGif = data.content && data.content.startsWith('[GIF:');
+    const isDeleted = data.is_deleted;
+    const isEdited = data.is_edited;
+
+    // Helper: detect plain image/gif URLs in text
+    function isMediaUrl(url) {
+      if (!url) return false;
+      const lower = url.toLowerCase();
+      return lower.match(/\.(gif|png|jpg|jpeg|webp|mp4)(\?.*)?$/) ||
+        lower.includes('tenor.com') || lower.includes('giphy.com') ||
+        lower.includes('klipy.com') || lower.includes('imgur.com') ||
+        lower.includes('cdn.discordapp.com');
+    }
+
+    // Trim URL-only content
+    const trimmed = (data.content || '').trim();
+    const isPlainUrl = trimmed.match(/^https?:\/\/\S+$/) && isMediaUrl(trimmed);
+
+    let replyHtml = '';
+    if (data.reply_to) {
+      replyHtml = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;padding:5px 10px;border-left:3px solid var(--accent);background:rgba(79,142,247,0.08);border-radius:0 6px 6px 0;font-size:11px;color:var(--text-2);max-width:100%;overflow:hidden;">
+        <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">↩ <strong>${esc(data.reply_to.author)}</strong>: ${esc(data.reply_to.content)}</span>
+      </div>`;
+    }
 
     let bubbleHtml;
-    if (isGif) {
-      const urlMatch = data.content.match(/https?:\/\/[^\s]+/);
+    if (isDeleted) {
+      bubbleHtml = `<div class="bubble" style="background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-style:italic;opacity:0.85;">
+        🗑️ ${esc(data.content || '[Message deleted]')} <span style="font-size:10px;opacity:0.6;">(deleted)</span>
+      </div>`;
+    } else if (isBotGif) {
+      const urlMatch = data.content.match(/https?:\/\/\S+/);
       const gifUrl = urlMatch ? urlMatch[0] : '';
       const moodMatch = data.content.match(/\[GIF:([^\]]+)\]/);
       const moodText = moodMatch ? moodMatch[1] : 'GIF';
       bubbleHtml = `<div class="bubble" style="padding:4px;background:none;border:none;"><img src="${gifUrl}" alt="${esc(moodText)}" style="max-width:240px;border-radius:10px;display:block;" loading="lazy"/></div>`;
+    } else if (isPlainUrl) {
+      bubbleHtml = `<div class="bubble" style="padding:4px;background:none;border:none;"><img src="${trimmed}" alt="Media" style="max-width:280px;border-radius:10px;display:block;" loading="lazy" onerror="this.parentElement.innerHTML='<div class=bubble><a href=${trimmed} target=_blank style=color:var(--accent)>${esc(trimmed)}</a></div>'"/></div>`;
+    } else if (data.attachments && data.attachments.length) {
+      const attachHtml = data.attachments.map(url => isMediaUrl(url)
+        ? `<img src="${url}" alt="Attachment" style="max-width:280px;border-radius:10px;display:block;margin-top:4px;" loading="lazy"/>`
+        : `<a href="${url}" target="_blank" style="color:var(--accent);font-size:12px;">📎 Attachment</a>`
+      ).join('');
+      const textPart = data.content ? `<div class="bubble">${esc(data.content)}</div>` : '';
+      bubbleHtml = textPart + `<div style="display:flex;flex-direction:column;gap:4px;">${attachHtml}</div>`;
     } else {
-      bubbleHtml = `<div class="bubble">${esc(data.content)}</div>`;
+      const editBadge = isEdited ? ` <span style="font-size:10px;opacity:0.5;">(edited)</span>` : '';
+      bubbleHtml = `<div class="bubble">${esc(data.content)}${editBadge}</div>`;
     }
 
     const avContent = role === 'assistant'
@@ -794,10 +831,11 @@
       : (data.avatar ? `<img src="${data.avatar}" alt="" />` : initial(data.user_name));
 
     return `
-      <div class="msg-row ${role}">
+      <div class="msg-row ${role}" style="${isDeleted ? 'opacity:0.7;' : ''}">
         <div class="msg-av ${role === 'assistant' ? 'ai-av' : 'user-av'}">${avContent}</div>
         <div class="msg-wrap">
           <div class="msg-meta">${label} · ${time}</div>
+          ${replyHtml}
           ${bubbleHtml}
         </div>
       </div>`;

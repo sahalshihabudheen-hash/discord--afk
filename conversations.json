@@ -1,0 +1,214 @@
+{
+  "1378725189474582603": {
+    "user_name": "Itzphoenix",
+    "profile": {
+      "handle": "itzphoenix0872",
+      "avatar": "https://cdn.discordapp.com/avatars/1378725189474582603/f8f6fac4e15643560abc474427508837.png?size=1024",
+      "status": "offline"
+    },
+    "messages": [
+      {
+        "id": "1539314433405489193",
+        "role": "user",
+        "content": "Hey",
+        "timestamp": "2026-08-18T22:16:02.386728",
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": false,
+        "deleted_at": null,
+        "is_edited": false,
+        "original_content": null
+      },
+      {
+        "id": "msg_1787071571.568755",
+        "role": "assistant",
+        "content": "hey! sahal's afk rn so you're chatting with his custom bot 🤖 he built me from scratch, pretty neat lol. what's up? 😄",
+        "timestamp": "2026-08-18T22:16:11.568755",
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": false,
+        "deleted_at": null,
+        "is_edited": false,
+        "original_content": null
+      },
+      {
+        "id": "msg_1787071590.523043",
+        "role": "assistant",
+        "content": "yoo bazi",
+        "timestamp": "2026-08-18T22:16:30.524042",
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": false,
+        "deleted_at": null,
+        "is_edited": false,
+        "original_content": null
+      },
+      {
+        "id": "1539314636048834710",
+        "role": "user",
+        "content": "Yoo br br pata pim",
+        "timestamp": "2026-08-18T22:16:50.622701",
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": true,
+        "deleted_at": "2026-08-18T22:18:49.836182",
+        "is_edited": false,
+        "original_content": null
+      },
+      {
+        "id": "msg_1787071614.247017",
+        "role": "assistant",
+        "content": "hey hey! what's good, br? anything fun going on? 😎",
+        "timestamp": "2026-08-18T22:16:54.247017",
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": false,
+        "deleted_at": null,
+        "is_edited": false,
+        "original_content": null
+      },
+      {
+        "id": "1539314953578745927",
+        "role": "user",
+        "content": "https://klipy.com/gifs/titan-tv-man-titantvmanboring",
+        "timestamp": "2026-08-18T22:18:06.453796",
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": false,
+        "deleted_at": null,
+        "is_edited": false,
+        "original_content": null
+      },
+      {
+        "id": "msg_1787071691.601108",
+        "role": "assistant",
+        "content": "nice gif! 😂 what’s the story behind that one? 😆",
+        "timestamp": "2026-08-18T22:18:11.601108",
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": false,
+        "deleted_at": null,
+        "is_edited": false,
+        "original_content": null
+      }
+    ],
+    "last_updated": "2026-08-18T22:18:11.601108",
+    "total_messages": 7,
+    "ai_replies": 4,
+    "channel_id": "1392523975124451420"
+  },
+  "1294310004429553665": {
+    "user_name": "HaRsH",
+    "profile": {
+      "handle": "harsh77_1",
+      "avatar": "https://cdn.discordapp.com/avatars/1294310004429553665/9b493d5cd56b299553d4d7f81139f6c9.png?size=1024",
+      "avatar_decoration": "https://cdn.discordapp.com/avatar-decoration-presets/a_7c29485d405c05c5bf16e003faf0e70c.png?size=256&passthrough=true",
+      "status": "offline"
+    },
+    "messages": [
+      {
+        "id": "1539315474259640342",
+        "role": "user",
+        "content": "Ye",
+        "timestamp": "2026-08-18T22:20:10.545954",
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": false,
+        "deleted_at": null,
+        "is_edited": false,
+        "original_content": null
+      },
+      {
+        "id": "msg_1787071816.021312",
+        "role": "assistant",
+        "content": "hey! sahal's afk rn so you're chatting with his bot 🤖 he built me from scratch, pretty cool, right? what's up? 😄",
+        "timestamp": "2026-08-18T22:20:16.021312",
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": false,
+        "deleted_at": null,
+        "is_edited": false,
+        "original_content": null
+      },
+      {
+        "id": "1539315765520375858",
+        "role": "user",
+        "content": "What's going on",
+        "timestamp": "2026-08-18T22:21:19.907034",
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": false,
+        "deleted_at": null,
+        "is_edited": false,
+        "original_content": null
+      },
+      {
+        "id": "msg_1787071883.793585",
+        "role": "assistant",
+        "content": "just chillin’ here waitin’ on sahal, what’s good with you? 🤙✨",
+        "timestamp": "2026-08-18T22:21:23.793585",
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": false,
+        "deleted_at": null,
+        "is_edited": false,
+        "original_content": null
+      }
+    ],
+    "last_updated": "2026-08-18T22:21:23.793585",
+    "total_messages": 4,
+    "ai_replies": 2,
+    "channel_id": "1412819106461388820"
+  },
+  "1506673323449520218": {
+    "user_name": "Iris",
+    "profile": {
+      "handle": "iris0342777",
+      "avatar": "https://cdn.discordapp.com/avatars/1506673323449520218/b1811cd80b832caa9885d1c87e92bdb9.png?size=1024",
+      "status": "offline"
+    },
+    "messages": [
+      {
+        "id": "1539316041870606367",
+        "role": "user",
+        "content": "😂",
+        "timestamp": "2026-08-18T22:22:25.801621",
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": false,
+        "deleted_at": null,
+        "is_edited": false,
+        "original_content": null
+      },
+      {
+        "id": "msg_1787071949.217117",
+        "role": "assistant",
+        "content": "hey! sahal is afk rn so you're talking to his bot 🤖 he built me himself, pretty cool lol. what's up? 😄",
+        "timestamp": "2026-08-18T22:22:29.217117",
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": false,
+        "deleted_at": null,
+        "is_edited": false,
+        "original_content": null
+      }
+    ],
+    "last_updated": "2026-08-18T22:22:29.217117",
+    "total_messages": 2,
+    "ai_replies": 1,
+    "channel_id": "1537506707524026529"
+  }
+}

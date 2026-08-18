@@ -22,6 +22,10 @@ interface Message {
   attachments?: string[];
   stickers?: string[];
   reactions?: string[];
+  is_deleted?: boolean;
+  is_edited?: boolean;
+  original_content?: string | null;
+  reply_to?: { message_id: string; author: string; content: string } | null;
 }
 
 interface Conversation {
@@ -516,7 +520,30 @@ export default function Dashboard() {
               <div style={{ flex: 1, overflowY: "auto", padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
                 {selectedConvo.messages.map((msg, index) => {
                   const isAssistant = msg.role === "assistant";
-                  const isGif = msg.content.startsWith("[GIF:");
+                  const isBotGif = msg.content?.startsWith("[GIF:");
+                  const isDeleted = msg.is_deleted;
+                  const isEdited = msg.is_edited;
+                  const trimmed = (msg.content || "").trim();
+
+                  const isMediaUrl = (url: string) => {
+                    const l = url.toLowerCase();
+                    return /\.(gif|png|jpg|jpeg|webp|mp4)(\?.*)?$/.test(l) ||
+                      l.includes("tenor.com") || l.includes("giphy.com") ||
+                      l.includes("klipy.com") || l.includes("imgur.com") ||
+                      l.includes("cdn.discordapp.com");
+                  };
+                  const isPlainUrl = /^https?:\/\/\S+$/.test(trimmed) && isMediaUrl(trimmed);
+
+                  const bubbleBase: React.CSSProperties = {
+                    maxWidth: "75%",
+                    padding: "10px 16px",
+                    borderRadius: "16px",
+                    borderBottomRightRadius: isAssistant ? "4px" : "16px",
+                    borderBottomLeftRadius: isAssistant ? "16px" : "4px",
+                    fontSize: "14px",
+                    lineHeight: "1.5",
+                    wordBreak: "break-word",
+                  };
 
                   return (
                     <div
@@ -525,6 +552,7 @@ export default function Dashboard() {
                         display: "flex",
                         flexDirection: "column",
                         alignItems: isAssistant ? "flex-end" : "flex-start",
+                        opacity: isDeleted ? 0.7 : 1,
                       }}
                     >
                       <div
@@ -537,10 +565,40 @@ export default function Dashboard() {
                         }}
                       >
                         {isAssistant ? "🤖 Sahal's Bot" : selectedConvo.user_name} · {formatTime(msg.timestamp)}
+                        {isEdited && <span style={{ fontSize: "10px", opacity: 0.5, marginLeft: "5px" }}>(edited)</span>}
                       </div>
 
-                      {/* Main Message Content */}
-                      {isGif ? (
+                      {/* Reply context */}
+                      {msg.reply_to && (
+                        <div style={{
+                          maxWidth: "75%",
+                          marginBottom: "4px",
+                          padding: "5px 10px",
+                          borderLeft: "3px solid var(--accent-emerald)",
+                          backgroundColor: "rgba(52,211,153,0.06)",
+                          borderRadius: "0 6px 6px 0",
+                          fontSize: "12px",
+                          color: "var(--text-muted)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}>
+                          ↩ <strong>{msg.reply_to.author}</strong>: {msg.reply_to.content}
+                        </div>
+                      )}
+
+                      {/* Deleted message */}
+                      {isDeleted ? (
+                        <div style={{
+                          ...bubbleBase,
+                          backgroundColor: "rgba(248,113,113,0.1)",
+                          border: "1px solid rgba(248,113,113,0.3)",
+                          color: "#f87171",
+                          fontStyle: "italic",
+                        }}>
+                          🗑️ {msg.content || "[Message deleted]"} <span style={{ fontSize: "11px", opacity: 0.6 }}>(deleted)</span>
+                        </div>
+                      ) : isBotGif ? (
                         <div style={{ maxWidth: "260px", borderRadius: "12px", overflow: "hidden", border: "1px solid var(--border-subtle)" }}>
                           <img
                             src={msg.content.replace(/\[GIF:[^\]]+\]/, "")}
@@ -548,38 +606,32 @@ export default function Dashboard() {
                             style={{ width: "100%", borderRadius: "12px", display: "block" }}
                           />
                         </div>
+                      ) : isPlainUrl ? (
+                        <div style={{ maxWidth: "280px", borderRadius: "12px", overflow: "hidden", border: "1px solid var(--border-subtle)" }}>
+                          <img src={trimmed} alt="Media" style={{ width: "100%", borderRadius: "12px", display: "block" }} />
+                        </div>
                       ) : (
                         msg.content && (
-                          <div
-                            style={{
-                              maxWidth: "75%",
-                              padding: "10px 16px",
-                              borderRadius: "16px",
-                              borderBottomRightRadius: isAssistant ? "4px" : "16px",
-                              borderBottomLeftRadius: isAssistant ? "16px" : "4px",
-                              backgroundColor: isAssistant ? "var(--bg-bubble-bot)" : "var(--bg-bubble-user)",
-                              color: isAssistant ? "#34d399" : "var(--text-primary)",
-                              border: isAssistant ? "1px solid rgba(52, 211, 153, 0.2)" : "1px solid var(--border-subtle)",
-                              fontSize: "14px",
-                              lineHeight: "1.5",
-                              wordBreak: "break-word",
-                            }}
-                          >
+                          <div style={{
+                            ...bubbleBase,
+                            backgroundColor: isAssistant ? "var(--bg-bubble-bot)" : "var(--bg-bubble-user)",
+                            color: isAssistant ? "#34d399" : "var(--text-primary)",
+                            border: isAssistant ? "1px solid rgba(52, 211, 153, 0.2)" : "1px solid var(--border-subtle)",
+                          }}>
                             {msg.content}
                           </div>
                         )
                       )}
 
-                      {/* Attachments / Images / GIFs Sent by Users */}
-                      {msg.attachments && msg.attachments.length > 0 && (
+                      {/* Attachments */}
+                      {!isDeleted && msg.attachments && msg.attachments.length > 0 && (
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px", maxWidth: "280px" }}>
                           {msg.attachments.map((attUrl, aIdx) => (
-                            <img
-                              key={aIdx}
-                              src={attUrl}
-                              alt="Attachment"
-                              style={{ width: "100%", borderRadius: "10px", border: "1px solid var(--border-subtle)" }}
-                            />
+                            isMediaUrl(attUrl) ? (
+                              <img key={aIdx} src={attUrl} alt="Attachment" style={{ width: "100%", borderRadius: "10px", border: "1px solid var(--border-subtle)" }} />
+                            ) : (
+                              <a key={aIdx} href={attUrl} target="_blank" rel="noreferrer" style={{ color: "var(--accent-emerald)", fontSize: "12px" }}>📎 Attachment</a>
+                            )
                           ))}
                         </div>
                       )}
@@ -593,20 +645,11 @@ export default function Dashboard() {
                         </div>
                       )}
 
-                      {/* Live Reactions */}
+                      {/* Reactions */}
                       {msg.reactions && msg.reactions.length > 0 && (
                         <div style={{ display: "flex", gap: "4px", marginTop: "4px", flexWrap: "wrap" }}>
                           {msg.reactions.map((react, rIdx) => (
-                            <span
-                              key={rIdx}
-                              style={{
-                                padding: "2px 8px",
-                                borderRadius: "12px",
-                                backgroundColor: "var(--bg-surface-elevated)",
-                                border: "1px solid var(--border-subtle)",
-                                fontSize: "12px",
-                              }}
-                            >
+                            <span key={rIdx} style={{ padding: "2px 8px", borderRadius: "12px", backgroundColor: "var(--bg-surface-elevated)", border: "1px solid var(--border-subtle)", fontSize: "12px" }}>
                               {react}
                             </span>
                           ))}

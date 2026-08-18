@@ -46,6 +46,7 @@ class ConversationStore:
         reactions: List[str] = None,
         message_id: str = None,
         channel_id: str = None,
+        reply_to: dict = None,
     ):
         """Add a message with optional attachments, stickers, reactions, and message ID."""
         if user_id not in self._store:
@@ -85,6 +86,7 @@ class ConversationStore:
             "deleted_at": None,
             "is_edited": False,
             "original_content": None,
+            "reply_to": reply_to or None,
         }
 
         convo["messages"].append(msg_obj)

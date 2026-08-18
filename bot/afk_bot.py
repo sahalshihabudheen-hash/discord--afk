@@ -170,6 +170,16 @@ class AFKBot(discord.Client):
         attachment_urls = [a.url for a in message.attachments if a.url]
         sticker_urls = [s.url for s in getattr(message, "stickers", []) if hasattr(s, "url") and s.url]
 
+        # Capture reply-to context (what message the user replied to)
+        reply_to = None
+        if message.reference and message.reference.resolved:
+            ref = message.reference.resolved
+            reply_to = {
+                "message_id": str(ref.id),
+                "author": ref.author.display_name if ref.author else "Unknown",
+                "content": ref.content or "[Media]",
+            }
+
         channel_type = "DM" if is_dm else "Group DM"
 
         print(f"[{channel_type}] 📨 {user_name}: {message.content[:80] if message.content else '[Media/Attachment]'}")
@@ -196,6 +206,7 @@ class AFKBot(discord.Client):
             stickers=sticker_urls,
             message_id=str(message.id),
             channel_id=str(message.channel.id),
+            reply_to=reply_to,
         )
 
         # Notify dashboard of incoming message
@@ -214,6 +225,7 @@ class AFKBot(discord.Client):
                 "custom_status": custom_status,
                 "attachments": attachment_urls,
                 "stickers": sticker_urls,
+                "reply_to": reply_to,
             },
         )
 
