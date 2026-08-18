@@ -93,14 +93,50 @@ class AFKBot(discord.Client):
         user_name = message.author.display_name
         is_first = self.store.is_first_message(user_id)
         avatar_url = str(message.author.display_avatar.url) if message.author.display_avatar else None
+        
+        # Avatar decoration
+        avatar_deco = None
+        if hasattr(message.author, "avatar_decoration") and message.author.avatar_decoration:
+            avatar_deco = str(message.author.avatar_decoration.url)
+
+        # Status & Custom Status
+        status_val = str(getattr(message.author, "status", "offline"))
+        custom_status = None
+        if hasattr(message.author, "activities"):
+            for act in message.author.activities:
+                if isinstance(act, discord.CustomActivity) and act.name:
+                    custom_status = act.name
+                    break
+
+        # Attachments & Stickers
+        attachment_urls = [a.url for a in message.attachments if a.url]
+        sticker_urls = [s.url for s in getattr(message, "stickers", []) if hasattr(s, "url") and s.url]
+
         channel_type = "DM" if is_dm else "Group DM"
 
-        print(f"[{channel_type}] 📨 {user_name}: {message.content[:80]}")
+        print(f"[{channel_type}] 📨 {user_name}: {message.content[:80] if message.content else '[Media/Attachment]'}")
+
+        # Update full user profile in store
+        self.store.update_profile(
+            user_id,
+            {
+                "handle": str(message.author),
+                "avatar": avatar_url,
+                "avatar_decoration": avatar_deco,
+                "status": status_val,
+                "custom_status": custom_status,
+            },
+        )
 
         # Persist incoming message
-        self.store.add_message(user_id, "user", message.content, user_name)
-        if avatar_url:
-            self.store.set_avatar(user_id, avatar_url)
+        self.store.add_message(
+            user_id,
+            "user",
+            message.content,
+            user_name,
+            attachments=attachment_urls,
+            stickers=sticker_urls,
+        )
 
         # Notify dashboard of incoming message
         self.emit(
@@ -113,6 +149,11 @@ class AFKBot(discord.Client):
                 "channel_type": channel_type,
                 "timestamp": datetime.now().isoformat(),
                 "avatar": avatar_url,
+                "avatar_decoration": avatar_deco,
+                "status": status_val,
+                "custom_status": custom_status,
+                "attachments": attachment_urls,
+                "stickers": sticker_urls,
             },
         )
 
@@ -191,3 +232,21 @@ class AFKBot(discord.Client):
         except Exception as e:
             print(f"[Error] Failed to process message from {user_name}: {e}")
             self.emit("error", {"message": str(e), "timestamp": datetime.now().isoformat()})
+
+    async def on_reaction_add(self, reaction: discord.Reaction, user: discord.User):
+        # Ignore own reactions
+        if user.id == self.user.id:
+            return
+
+        is_dm = isinstance(reaction.message.channel, discord.DMChannel)
+        is_group = isinstance(reaction.message.channel, discord.GroupChannel)
+        if not (is_dm or is_group):
+            return
+
+        user_id = str(reaction.message.author.id)
+        emoji_str = str(reaction.emoji)
+
+        self.store.add_reaction(user_id, emoji_str)
+        self.emit("stats_update", self.store.get_stats())
+        self.emit("conversations_update", self.store.get_sorted_conversations())
+

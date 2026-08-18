@@ -2,17 +2,32 @@
 
 import { useEffect, useState, useRef } from "react";
 
+interface UserProfile {
+  avatar?: string | null;
+  avatar_decoration?: string | null;
+  banner?: string | null;
+  status?: string;
+  custom_status?: string | null;
+  bio?: string | null;
+  handle?: string;
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
   user_name?: string;
   avatar?: string | null;
+  avatar_decoration?: string | null;
+  attachments?: string[];
+  stickers?: string[];
+  reactions?: string[];
 }
 
 interface Conversation {
   user_id: string;
   user_name: string;
+  profile?: UserProfile;
   last_updated: string;
   total_messages: number;
   ai_replies: number;
@@ -40,7 +55,7 @@ export default function Dashboard() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isToggling, setIsToggling] = useState(false);
-  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  const [showProfileCard, setShowProfileCard] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Poll state from API every 2.5 seconds
@@ -107,6 +122,19 @@ export default function Dashboard() {
     }
   };
 
+  const getStatusColor = (status?: string) => {
+    switch (status?.toLowerCase()) {
+      case "online":
+        return "#22c55e";
+      case "idle":
+        return "#f59e0b";
+      case "dnd":
+        return "#ef4444";
+      default:
+        return "#64748b";
+    }
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", backgroundColor: "var(--bg-base)" }}>
       {/* ── Top Navigation Bar ────────────────────────────────────────── */}
@@ -124,9 +152,9 @@ export default function Dashboard() {
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <div
             style={{
-              width: "36px",
-              height: "36px",
-              borderRadius: "10px",
+              width: "38px",
+              height: "38px",
+              borderRadius: "12px",
               backgroundColor: "rgba(16, 185, 129, 0.15)",
               border: "1px solid rgba(16, 185, 129, 0.3)",
               display: "flex",
@@ -145,28 +173,28 @@ export default function Dashboard() {
               <span
                 className={state?.bot_connected ? "pulse-dot" : ""}
                 style={{
-                  width: "7px",
-                  height: "7px",
+                  width: "8px",
+                  height: "8px",
                   borderRadius: "50%",
                   backgroundColor: state?.bot_connected ? "var(--accent-emerald)" : "var(--accent-rose)",
                   display: "inline-block",
                 }}
               />
               <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: "500" }}>
-                {state?.bot_connected ? "PC Bot Online" : "PC Bot Offline / Waiting"}
+                {state?.bot_connected ? "Bot Connected · PC Active" : "Waiting for PC Bot..."}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Stats Chips */}
+        {/* Stats Chips & Toggle */}
         <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
           <div
             style={{
               display: "flex",
               alignItems: "center",
               gap: "6px",
-              padding: "6px 12px",
+              padding: "6px 14px",
               borderRadius: "20px",
               backgroundColor: "var(--bg-surface-elevated)",
               border: "1px solid var(--border-subtle)",
@@ -181,7 +209,7 @@ export default function Dashboard() {
               display: "flex",
               alignItems: "center",
               gap: "6px",
-              padding: "6px 12px",
+              padding: "6px 14px",
               borderRadius: "20px",
               backgroundColor: "var(--bg-surface-elevated)",
               border: "1px solid var(--border-subtle)",
@@ -196,7 +224,7 @@ export default function Dashboard() {
               display: "flex",
               alignItems: "center",
               gap: "6px",
-              padding: "6px 12px",
+              padding: "6px 14px",
               borderRadius: "20px",
               backgroundColor: "var(--bg-surface-elevated)",
               border: "1px solid var(--border-subtle)",
@@ -207,7 +235,6 @@ export default function Dashboard() {
             <span>🤖</span> Replies: <strong style={{ color: "var(--text-primary)" }}>{state?.stats.total_ai_replies || 0}</strong>
           </div>
 
-          {/* AFK Remote Toggle Switch */}
           <button
             onClick={handleToggleAFK}
             disabled={isToggling}
@@ -215,7 +242,7 @@ export default function Dashboard() {
               display: "flex",
               alignItems: "center",
               gap: "8px",
-              padding: "8px 16px",
+              padding: "8px 18px",
               borderRadius: "10px",
               backgroundColor: state?.afk_mode ? "var(--accent-emerald)" : "var(--bg-surface-elevated)",
               color: state?.afk_mode ? "#000" : "var(--text-secondary)",
@@ -231,9 +258,9 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* ── Main App Layout ─────────────────────────────────────────── */}
+      {/* ── Main Layout ─────────────────────────────────────────── */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* Left Sidebar: Conversations List */}
+        {/* Left Sidebar: Conversations */}
         <aside
           style={{
             width: "320px",
@@ -244,11 +271,10 @@ export default function Dashboard() {
             flexShrink: 0,
           }}
         >
-          {/* Search box */}
           <div style={{ padding: "14px" }}>
             <input
               type="text"
-              placeholder="Search conversations..."
+              placeholder="Search chats & members..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
@@ -264,7 +290,6 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* List items */}
           <div style={{ flex: 1, overflowY: "auto" }}>
             {filteredConversations.length === 0 ? (
               <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--text-muted)", fontSize: "13px" }}>
@@ -273,13 +298,13 @@ export default function Dashboard() {
             ) : (
               filteredConversations.map((convo) => {
                 const isSelected = convo.user_id === selectedUserId;
+                const profile = convo.profile || {};
+                const statusColor = getStatusColor(profile.status);
+
                 return (
                   <div
                     key={convo.user_id}
-                    onClick={() => {
-                      setSelectedUserId(convo.user_id);
-                      setMobileView("chat");
-                    }}
+                    onClick={() => setSelectedUserId(convo.user_id)}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -291,33 +316,64 @@ export default function Dashboard() {
                       transition: "background-color 0.15s ease",
                     }}
                   >
-                    {/* Avatar */}
-                    <div
-                      style={{
-                        width: "42px",
-                        height: "42px",
-                        borderRadius: "50%",
-                        backgroundColor: "var(--bg-base)",
-                        border: "1px solid var(--border-subtle)",
-                        overflow: "hidden",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                        fontWeight: "700",
-                        color: "var(--text-secondary)",
-                      }}
-                    >
-                      {convo.avatar ? (
-                        <img src={convo.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      ) : (
-                        convo.user_name.charAt(0).toUpperCase()
+                    {/* Avatar with Status & Deco */}
+                    <div style={{ position: "relative", width: "42px", height: "42px", flexShrink: 0 }}>
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          borderRadius: "50%",
+                          backgroundColor: "var(--bg-base)",
+                          border: "1px solid var(--border-subtle)",
+                          overflow: "hidden",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: "700",
+                          color: "var(--text-secondary)",
+                        }}
+                      >
+                        {profile.avatar ? (
+                          <img src={profile.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        ) : (
+                          convo.user_name.charAt(0).toUpperCase()
+                        )}
+                      </div>
+
+                      {/* Avatar Decoration Overlay */}
+                      {profile.avatar_decoration && (
+                        <img
+                          src={profile.avatar_decoration}
+                          alt="Deco"
+                          style={{
+                            position: "absolute",
+                            top: "-12%",
+                            left: "-12%",
+                            width: "124%",
+                            height: "124%",
+                            pointerEvents: "none",
+                          }}
+                        />
                       )}
+
+                      {/* Status Dot */}
+                      <span
+                        style={{
+                          position: "absolute",
+                          bottom: "0px",
+                          right: "0px",
+                          width: "10px",
+                          height: "10px",
+                          borderRadius: "50%",
+                          backgroundColor: statusColor,
+                          border: "2px solid var(--bg-surface)",
+                        }}
+                      />
                     </div>
 
                     {/* Details */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "3px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2px" }}>
                         <span style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {convo.user_name}
                         </span>
@@ -336,7 +392,7 @@ export default function Dashboard() {
           </div>
         </aside>
 
-        {/* Right Area: Chat History */}
+        {/* Center: Chat Stream */}
         <main style={{ flex: 1, display: "flex", flexDirection: "column", backgroundColor: "var(--bg-base)" }}>
           {selectedConvo ? (
             <>
@@ -352,37 +408,85 @@ export default function Dashboard() {
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <div
-                    style={{
-                      width: "38px",
-                      height: "38px",
-                      borderRadius: "50%",
-                      backgroundColor: "var(--bg-base)",
-                      overflow: "hidden",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: "700",
-                    }}
-                  >
-                    {selectedConvo.avatar ? (
-                      <img src={selectedConvo.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    ) : (
-                      selectedConvo.user_name.charAt(0).toUpperCase()
+                  <div style={{ position: "relative", width: "40px", height: "40px" }}>
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        borderRadius: "50%",
+                        backgroundColor: "var(--bg-base)",
+                        overflow: "hidden",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: "700",
+                      }}
+                    >
+                      {selectedConvo.profile?.avatar ? (
+                        <img src={selectedConvo.profile.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        selectedConvo.user_name.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    {selectedConvo.profile?.avatar_decoration && (
+                      <img
+                        src={selectedConvo.profile.avatar_decoration}
+                        alt="Deco"
+                        style={{
+                          position: "absolute",
+                          top: "-12%",
+                          left: "-12%",
+                          width: "124%",
+                          height: "124%",
+                          pointerEvents: "none",
+                        }}
+                      />
                     )}
                   </div>
                   <div>
-                    <h2 style={{ fontSize: "15px", fontWeight: "700", color: "var(--text-primary)" }}>
-                      {selectedConvo.user_name}
-                    </h2>
-                    <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-                      {selectedConvo.channel_type || "DM"} · {selectedConvo.total_messages} messages ({selectedConvo.ai_replies} bot replies)
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <h2 style={{ fontSize: "15px", fontWeight: "700", color: "var(--text-primary)" }}>
+                        {selectedConvo.user_name}
+                      </h2>
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          padding: "2px 8px",
+                          borderRadius: "12px",
+                          backgroundColor: "var(--bg-surface-elevated)",
+                          color: getStatusColor(selectedConvo.profile?.status),
+                          fontWeight: "600",
+                          textTransform: "capitalize",
+                        }}
+                      >
+                        {selectedConvo.profile?.status || "offline"}
+                      </span>
+                    </div>
+                    {selectedConvo.profile?.custom_status && (
+                      <div style={{ fontSize: "12px", color: "var(--accent-cyan)", marginTop: "2px" }}>
+                        ✨ {selectedConvo.profile.custom_status}
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                <button
+                  onClick={() => setShowProfileCard(!showProfileCard)}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "8px",
+                    backgroundColor: "var(--bg-surface-elevated)",
+                    border: "1px solid var(--border-subtle)",
+                    color: "var(--text-secondary)",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  {showProfileCard ? "Hide Profile" : "Show Profile"}
+                </button>
               </div>
 
-              {/* Message List */}
+              {/* Message History */}
               <div style={{ flex: 1, overflowY: "auto", padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
                 {selectedConvo.messages.map((msg, index) => {
                   const isAssistant = msg.role === "assistant";
@@ -406,11 +510,12 @@ export default function Dashboard() {
                           paddingRight: isAssistant ? "8px" : "0",
                         }}
                       >
-                        {isAssistant ? "🤖 Bot" : selectedConvo.user_name} · {formatTime(msg.timestamp)}
+                        {isAssistant ? "🤖 Sahal's Bot" : selectedConvo.user_name} · {formatTime(msg.timestamp)}
                       </div>
 
+                      {/* Main Message Content */}
                       {isGif ? (
-                        <div style={{ maxWidth: "260px", borderRadius: "12px", overflow: "hidden" }}>
+                        <div style={{ maxWidth: "260px", borderRadius: "12px", overflow: "hidden", border: "1px solid var(--border-subtle)" }}>
                           <img
                             src={msg.content.replace(/\[GIF:[^\]]+\]/, "")}
                             alt="GIF"
@@ -418,22 +523,67 @@ export default function Dashboard() {
                           />
                         </div>
                       ) : (
-                        <div
-                          style={{
-                            maxWidth: "75%",
-                            padding: "10px 16px",
-                            borderRadius: "16px",
-                            borderBottomRightRadius: isAssistant ? "4px" : "16px",
-                            borderBottomLeftRadius: isAssistant ? "16px" : "4px",
-                            backgroundColor: isAssistant ? "var(--bg-bubble-bot)" : "var(--bg-bubble-user)",
-                            color: isAssistant ? "#34d399" : "var(--text-primary)",
-                            border: isAssistant ? "1px solid rgba(52, 211, 153, 0.2)" : "1px solid var(--border-subtle)",
-                            fontSize: "14px",
-                            lineHeight: "1.5",
-                            wordBreak: "break-word",
-                          }}
-                        >
-                          {msg.content}
+                        msg.content && (
+                          <div
+                            style={{
+                              maxWidth: "75%",
+                              padding: "10px 16px",
+                              borderRadius: "16px",
+                              borderBottomRightRadius: isAssistant ? "4px" : "16px",
+                              borderBottomLeftRadius: isAssistant ? "16px" : "4px",
+                              backgroundColor: isAssistant ? "var(--bg-bubble-bot)" : "var(--bg-bubble-user)",
+                              color: isAssistant ? "#34d399" : "var(--text-primary)",
+                              border: isAssistant ? "1px solid rgba(52, 211, 153, 0.2)" : "1px solid var(--border-subtle)",
+                              fontSize: "14px",
+                              lineHeight: "1.5",
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            {msg.content}
+                          </div>
+                        )
+                      )}
+
+                      {/* Attachments / Images / GIFs Sent by Users */}
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px", maxWidth: "280px" }}>
+                          {msg.attachments.map((attUrl, aIdx) => (
+                            <img
+                              key={aIdx}
+                              src={attUrl}
+                              alt="Attachment"
+                              style={{ width: "100%", borderRadius: "10px", border: "1px solid var(--border-subtle)" }}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Stickers */}
+                      {msg.stickers && msg.stickers.length > 0 && (
+                        <div style={{ marginTop: "6px", maxWidth: "160px" }}>
+                          {msg.stickers.map((stkUrl, sIdx) => (
+                            <img key={sIdx} src={stkUrl} alt="Sticker" style={{ width: "100%" }} />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Live Reactions */}
+                      {msg.reactions && msg.reactions.length > 0 && (
+                        <div style={{ display: "flex", gap: "4px", marginTop: "4px", flexWrap: "wrap" }}>
+                          {msg.reactions.map((react, rIdx) => (
+                            <span
+                              key={rIdx}
+                              style={{
+                                padding: "2px 8px",
+                                borderRadius: "12px",
+                                backgroundColor: "var(--bg-surface-elevated)",
+                                border: "1px solid var(--border-subtle)",
+                                fontSize: "12px",
+                              }}
+                            >
+                              {react}
+                            </span>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -444,10 +594,121 @@ export default function Dashboard() {
             </>
           ) : (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: "14px" }}>
-              Select a conversation from the left to view messages.
+              Select a conversation to monitor messages and profiles.
             </div>
           )}
         </main>
+
+        {/* Right Sidebar: Rich Discord User Profile Card */}
+        {selectedConvo && showProfileCard && (
+          <aside
+            style={{
+              width: "280px",
+              backgroundColor: "var(--bg-surface)",
+              borderLeft: "1px solid var(--border-subtle)",
+              padding: "20px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "16px",
+              overflowY: "auto",
+            }}
+          >
+            <h3 style={{ fontSize: "13px", fontWeight: "700", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Discord Profile
+            </h3>
+
+            {/* Profile Avatar Card */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", textAlign: "center" }}>
+              <div style={{ position: "relative", width: "72px", height: "72px" }}>
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    borderRadius: "50%",
+                    backgroundColor: "var(--bg-base)",
+                    overflow: "hidden",
+                    border: "2px solid var(--border-strong)",
+                  }}
+                >
+                  {selectedConvo.profile?.avatar ? (
+                    <img src={selectedConvo.profile.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px", fontWeight: "700" }}>
+                      {selectedConvo.user_name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+
+                {/* Decoration */}
+                {selectedConvo.profile?.avatar_decoration && (
+                  <img
+                    src={selectedConvo.profile.avatar_decoration}
+                    alt="Deco"
+                    style={{
+                      position: "absolute",
+                      top: "-14%",
+                      left: "-14%",
+                      width: "128%",
+                      height: "128%",
+                      pointerEvents: "none",
+                    }}
+                  />
+                )}
+              </div>
+
+              <div>
+                <div style={{ fontSize: "16px", fontWeight: "700", color: "var(--text-primary)" }}>
+                  {selectedConvo.user_name}
+                </div>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                  {selectedConvo.profile?.handle || `@${selectedConvo.user_name}`}
+                </div>
+              </div>
+            </div>
+
+            {/* Custom Status */}
+            {selectedConvo.profile?.custom_status && (
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "10px",
+                  backgroundColor: "var(--bg-surface-elevated)",
+                  border: "1px solid var(--border-subtle)",
+                }}
+              >
+                <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Status</div>
+                <div style={{ fontSize: "13px", color: "var(--text-primary)" }}>{selectedConvo.profile.custom_status}</div>
+              </div>
+            )}
+
+            {/* Channel & Stats */}
+            <div
+              style={{
+                padding: "10px 14px",
+                borderRadius: "10px",
+                backgroundColor: "var(--bg-surface-elevated)",
+                border: "1px solid var(--border-subtle)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+                fontSize: "12px",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--text-muted)" }}>Channel Type</span>
+                <span style={{ color: "var(--text-primary)", fontWeight: "600" }}>{selectedConvo.channel_type || "DM"}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--text-muted)" }}>Total Messages</span>
+                <span style={{ color: "var(--text-primary)", fontWeight: "600" }}>{selectedConvo.total_messages}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--text-muted)" }}>Bot Replies</span>
+                <span style={{ color: "#34d399", fontWeight: "600" }}>{selectedConvo.ai_replies}</span>
+              </div>
+            </div>
+          </aside>
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,14 @@
-// In-memory global store for Vercel deployment with optional external KV support
+// In-memory global store for Vercel deployment with rich Discord profile & media support
+
+export interface UserProfile {
+  avatar?: string | null;
+  avatar_decoration?: string | null;
+  banner?: string | null;
+  status?: "online" | "idle" | "dnd" | "offline" | string;
+  custom_status?: string | null;
+  bio?: string | null;
+  handle?: string;
+}
 
 export interface Message {
   role: "user" | "assistant";
@@ -6,11 +16,16 @@ export interface Message {
   timestamp: string;
   user_name?: string;
   avatar?: string | null;
+  avatar_decoration?: string | null;
+  attachments?: string[];
+  stickers?: string[];
+  reactions?: string[];
 }
 
 export interface Conversation {
   user_id: string;
   user_name: string;
+  profile?: UserProfile;
   last_updated: string;
   total_messages: number;
   ai_replies: number;
