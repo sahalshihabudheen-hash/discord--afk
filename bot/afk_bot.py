@@ -151,11 +151,46 @@ class AFKBot(discord.Client):
         user_name = message.author.display_name
         is_first = self.store.is_first_message(user_id)
         avatar_url = str(message.author.display_avatar.url) if message.author.display_avatar else None
-        
+
         # Avatar decoration
         avatar_deco = None
         if hasattr(message.author, "avatar_decoration") and message.author.avatar_decoration:
             avatar_deco = str(message.author.avatar_decoration.url)
+
+        # Profile Effect (animated background overlay)
+        profile_effect = None
+        try:
+            if hasattr(message.author, "profile_effect") and message.author.profile_effect:
+                pe = message.author.profile_effect
+                if hasattr(pe, "url"):
+                    profile_effect = str(pe.url)
+                elif hasattr(pe, "id"):
+                    # Construct CDN URL from the effect ID
+                    profile_effect = f"https://cdn.discordapp.com/profile-effects/{pe.id}/effect.png"
+        except Exception:
+            pass
+
+        # Nameplate (collectibles badge strip)
+        nameplate = None
+        try:
+            if hasattr(message.author, "collectibles") and message.author.collectibles:
+                coll = message.author.collectibles
+                if hasattr(coll, "nameplate") and coll.nameplate:
+                    np = coll.nameplate
+                    if hasattr(np, "asset"):
+                        nameplate = str(np.asset)
+                    elif hasattr(np, "url"):
+                        nameplate = str(np.url)
+        except Exception:
+            pass
+
+        # Banner
+        banner_url = None
+        try:
+            if hasattr(message.author, "banner") and message.author.banner:
+                banner_url = str(message.author.banner.url)
+        except Exception:
+            pass
 
         # Status & Custom Status
         status_val = str(getattr(message.author, "status", "offline"))
@@ -191,6 +226,9 @@ class AFKBot(discord.Client):
                 "handle": str(message.author),
                 "avatar": avatar_url,
                 "avatar_decoration": avatar_deco,
+                "profile_effect": profile_effect,
+                "nameplate": nameplate,
+                "banner": banner_url,
                 "status": status_val,
                 "custom_status": custom_status,
             },
@@ -221,6 +259,9 @@ class AFKBot(discord.Client):
                 "timestamp": datetime.now().isoformat(),
                 "avatar": avatar_url,
                 "avatar_decoration": avatar_deco,
+                "profile_effect": profile_effect,
+                "nameplate": nameplate,
+                "banner": banner_url,
                 "status": status_val,
                 "custom_status": custom_status,
                 "attachments": attachment_urls,
@@ -247,7 +288,7 @@ class AFKBot(discord.Client):
             reply = await self.groq.get_response(history, user_name=user_name)
 
             if not reply:
-                reply = f"hey {user_name}! {self.owner_name} is away rn, he'll reply as soon as he's back 🙌"
+                reply = f"yo {user_name}! been kinda tied up rn, hit me up later 🙌"
 
             # Store and send reply (directly quoting the user's message)
             self.store.add_message(
@@ -321,10 +362,20 @@ class AFKBot(discord.Client):
         if not (is_dm or is_group):
             return
 
-        user_id = str(reaction.message.author.id)
+        # Determine the conversation owner: the other person in the DM (not us)
+        # The reacted message could be from either us or the user
+        if reaction.message.author.id == self.user.id:
+            # We sent the message — the convo is owned by the reactor
+            user_id = str(user.id)
+        else:
+            # They sent the message — convo is owned by message author
+            user_id = str(reaction.message.author.id)
+
+        message_id = str(reaction.message.id)
         emoji_str = str(reaction.emoji)
 
-        self.store.add_reaction(user_id, emoji_str)
+        print(f"[Reaction] {user.display_name} reacted {emoji_str} to message {message_id}")
+        self.store.add_reaction(user_id, message_id, emoji_str)
         self.emit("stats_update", self.store.get_stats())
         self.emit("conversations_update", self.store.get_sorted_conversations())
 

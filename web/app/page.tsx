@@ -5,6 +5,8 @@ import { useEffect, useState, useRef } from "react";
 interface UserProfile {
   avatar?: string | null;
   avatar_decoration?: string | null;
+  profile_effect?: string | null;
+  nameplate?: string | null;
   banner?: string | null;
   status?: string;
   custom_status?: string | null;
@@ -95,9 +97,12 @@ export default function Dashboard() {
       if (res.ok) {
         const data: DashboardState = await res.json();
         setState(data);
-        if (!selectedUserId && data.conversations.length > 0) {
-          setSelectedUserId(data.conversations[0].user_id);
-        }
+        setSelectedUserId((current) => {
+          if (!current && data.conversations.length > 0) {
+            return data.conversations[0].user_id;
+          }
+          return current;
+        });
       }
     } catch (e) {
       console.error("Fetch state error:", e);
@@ -527,11 +532,18 @@ export default function Dashboard() {
 
                   const isMediaUrl = (url: string) => {
                     const l = url.toLowerCase();
-                    return /\.(gif|png|jpg|jpeg|webp|mp4)(\?.*)?$/.test(l) ||
-                      l.includes("tenor.com") || l.includes("giphy.com") ||
-                      l.includes("klipy.com") || l.includes("imgur.com") ||
-                      l.includes("cdn.discordapp.com");
+                    // Match by file extension (gif, png, jpg, etc.)
+                    if (/\.(gif|png|jpg|jpeg|webp|mp4|mov|webm)(\?.*)?$/.test(l)) return true;
+                    // Match known GIF/media CDN domains (no extension needed)
+                    const gifDomains = [
+                      "tenor.com", "giphy.com", "klipy.com",
+                      "imgur.com", "cdn.discordapp.com", "media.discordapp.net",
+                      "i.imgur.com", "media.tenor.com", "media1.tenor.com",
+                      "c.tenor.com", "media.giphy.com", "i.giphy.com",
+                    ];
+                    return gifDomains.some((d) => l.includes(d));
                   };
+                  // A message is a "plain media URL" if it's ONLY a URL pointing to media
                   const isPlainUrl = /^https?:\/\/\S+$/.test(trimmed) && isMediaUrl(trimmed);
 
                   const bubbleBase: React.CSSProperties = {
@@ -728,20 +740,71 @@ export default function Dashboard() {
               width: "280px",
               backgroundColor: "var(--bg-surface)",
               borderLeft: "1px solid var(--border-subtle)",
-              padding: "20px",
               display: "flex",
               flexDirection: "column",
-              gap: "16px",
               overflowY: "auto",
             }}
           >
-            <h3 style={{ fontSize: "13px", fontWeight: "700", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            <h3 style={{ fontSize: "13px", fontWeight: "700", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", padding: "16px 20px 0" }}>
               Discord Profile
             </h3>
 
-            {/* Profile Avatar Card */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", textAlign: "center" }}>
-              <div style={{ position: "relative", width: "72px", height: "72px" }}>
+            {/* ── Banner + Avatar section ─────────────────── */}
+            <div style={{ position: "relative", marginTop: "10px" }}>
+              {/* Banner */}
+              <div
+                style={{
+                  width: "100%",
+                  height: "80px",
+                  backgroundColor: selectedConvo.profile?.banner ? "transparent" : "var(--bg-base)",
+                  backgroundImage: selectedConvo.profile?.banner ? `url(${selectedConvo.profile.banner})` : undefined,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                {/* Profile Effect overlay on banner */}
+                {selectedConvo.profile?.profile_effect && (
+                  <img
+                    src={selectedConvo.profile.profile_effect}
+                    alt="Profile Effect"
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      opacity: 0.85,
+                      pointerEvents: "none",
+                      mixBlendMode: "screen",
+                    }}
+                  />
+                )}
+                {/* Dark gradient at bottom so avatar reads clearly */}
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: "40px",
+                    background: "linear-gradient(to bottom, transparent, var(--bg-surface))",
+                  }}
+                />
+              </div>
+
+              {/* Avatar — overlapping the banner */}
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "-36px",
+                  left: "20px",
+                  width: "72px",
+                  height: "72px",
+                }}
+              >
                 <div
                   style={{
                     width: "100%",
@@ -749,7 +812,7 @@ export default function Dashboard() {
                     borderRadius: "50%",
                     backgroundColor: "var(--bg-base)",
                     overflow: "hidden",
-                    border: "2px solid var(--border-strong)",
+                    border: "3px solid var(--bg-surface)",
                   }}
                 >
                   {selectedConvo.profile?.avatar ? (
@@ -760,8 +823,7 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
-
-                {/* Decoration */}
+                {/* Avatar Decoration */}
                 {selectedConvo.profile?.avatar_decoration && (
                   <img
                     src={selectedConvo.profile.avatar_decoration}
@@ -776,57 +838,117 @@ export default function Dashboard() {
                     }}
                   />
                 )}
+                {/* Status dot */}
+                <span
+                  style={{
+                    position: "absolute",
+                    bottom: "2px",
+                    right: "2px",
+                    width: "14px",
+                    height: "14px",
+                    borderRadius: "50%",
+                    backgroundColor: getStatusColor(selectedConvo.profile?.status),
+                    border: "2px solid var(--bg-surface)",
+                  }}
+                />
               </div>
+            </div>
 
-              <div>
-                <div style={{ fontSize: "16px", fontWeight: "700", color: "var(--text-primary)" }}>
+            {/* Name + Handle + Nameplate — below the avatar overlap */}
+            <div style={{ marginTop: "44px", padding: "0 20px 0" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                <div style={{ fontSize: "17px", fontWeight: "800", color: "var(--text-primary)" }}>
                   {selectedConvo.user_name}
                 </div>
                 <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
                   {selectedConvo.profile?.handle || `@${selectedConvo.user_name}`}
                 </div>
+
+                {/* Nameplate badge strip */}
+                {selectedConvo.profile?.nameplate && (
+                  <div style={{ marginTop: "6px" }}>
+                    <img
+                      src={selectedConvo.profile.nameplate}
+                      alt="Nameplate"
+                      style={{
+                        maxWidth: "100%",
+                        height: "auto",
+                        maxHeight: "28px",
+                        borderRadius: "6px",
+                        objectFit: "contain",
+                      }}
+                      onError={(e) => {
+                        // If image fails, show a styled label fallback
+                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Custom Status */}
-            {selectedConvo.profile?.custom_status && (
+            {/* Rest of profile info */}
+            <div style={{ padding: "14px 20px", display: "flex", flexDirection: "column", gap: "12px" }}>
+              {/* Custom Status */}
+              {selectedConvo.profile?.custom_status && (
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    backgroundColor: "var(--bg-surface-elevated)",
+                    border: "1px solid var(--border-subtle)",
+                  }}
+                >
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Custom Status</div>
+                  <div style={{ fontSize: "13px", color: "var(--text-primary)" }}>✨ {selectedConvo.profile.custom_status}</div>
+                </div>
+              )}
+
+              {/* Profile Effect label (shows CDN link when no image preview) */}
+              {selectedConvo.profile?.profile_effect && (
+                <div
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: "10px",
+                    backgroundColor: "rgba(168,85,247,0.08)",
+                    border: "1px solid rgba(168,85,247,0.25)",
+                    fontSize: "12px",
+                    color: "var(--text-muted)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  <span>✨</span>
+                  <span style={{ color: "#a855f7" }}>Profile Effect active</span>
+                </div>
+              )}
+
+              {/* Channel & Stats */}
               <div
                 style={{
                   padding: "10px 14px",
                   borderRadius: "10px",
                   backgroundColor: "var(--bg-surface-elevated)",
                   border: "1px solid var(--border-subtle)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                  fontSize: "12px",
                 }}
               >
-                <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Status</div>
-                <div style={{ fontSize: "13px", color: "var(--text-primary)" }}>{selectedConvo.profile.custom_status}</div>
-              </div>
-            )}
-
-            {/* Channel & Stats */}
-            <div
-              style={{
-                padding: "10px 14px",
-                borderRadius: "10px",
-                backgroundColor: "var(--bg-surface-elevated)",
-                border: "1px solid var(--border-subtle)",
-                display: "flex",
-                flexDirection: "column",
-                gap: "8px",
-                fontSize: "12px",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--text-muted)" }}>Channel Type</span>
-                <span style={{ color: "var(--text-primary)", fontWeight: "600" }}>{selectedConvo.channel_type || "DM"}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--text-muted)" }}>Total Messages</span>
-                <span style={{ color: "var(--text-primary)", fontWeight: "600" }}>{selectedConvo.total_messages}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--text-muted)" }}>Bot Replies</span>
-                <span style={{ color: "#34d399", fontWeight: "600" }}>{selectedConvo.ai_replies}</span>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "var(--text-muted)" }}>Channel Type</span>
+                  <span style={{ color: "var(--text-primary)", fontWeight: "600" }}>{selectedConvo.channel_type || "DM"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "var(--text-muted)" }}>Total Messages</span>
+                  <span style={{ color: "var(--text-primary)", fontWeight: "600" }}>{selectedConvo.total_messages}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "var(--text-muted)" }}>Bot Replies</span>
+                  <span style={{ color: "#34d399", fontWeight: "600" }}>{selectedConvo.ai_replies}</span>
+                </div>
               </div>
             </div>
           </aside>

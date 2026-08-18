@@ -56,6 +56,8 @@ class ConversationStore:
                 "profile": {
                     "avatar": None,
                     "avatar_decoration": None,
+                    "profile_effect": None,
+                    "nameplate": None,
                     "banner": None,
                     "status": "offline",
                     "custom_status": None,
@@ -143,14 +145,25 @@ class ConversationStore:
                 current_profile[k] = v
         self.save_to_file()
 
-    def add_reaction(self, user_id: str, emoji_str: str):
-        """Record reaction added in conversation."""
-        if user_id in self._store and self._store[user_id]["messages"]:
-            last_msg = self._store[user_id]["messages"][-1]
-            if "reactions" not in last_msg:
-                last_msg["reactions"] = []
-            if emoji_str not in last_msg["reactions"]:
-                last_msg["reactions"].append(emoji_str)
+    def add_reaction(self, user_id: str, message_id: str, emoji_str: str):
+        """Record reaction added on a specific message. Falls back to last message if ID not found."""
+        if user_id not in self._store:
+            return
+        msgs = self._store[user_id]["messages"]
+        target = None
+        # Find the specific message by ID first
+        for msg in msgs:
+            if msg.get("id") == message_id:
+                target = msg
+                break
+        # Fallback: attach to last message if not found
+        if target is None and msgs:
+            target = msgs[-1]
+        if target is not None:
+            if "reactions" not in target:
+                target["reactions"] = []
+            if emoji_str not in target["reactions"]:
+                target["reactions"].append(emoji_str)
             self.save_to_file()
 
     def get_history(self, user_id: str) -> list:
