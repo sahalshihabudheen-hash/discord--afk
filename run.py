@@ -55,7 +55,7 @@ def main():
         "your_name": os.getenv("YOUR_NAME", "Sahal"),
         "afk_mode": os.getenv("AFK_MODE", "true").lower() == "true",
         "dashboard_port": int(os.getenv("DASHBOARD_PORT", "5000")),
-        "vercel_dashboard_url": os.getenv("VERCEL_DASHBOARD_URL", ""),
+        "vercel_dashboard_url": os.getenv("CLOUD_DASHBOARD_URL", "") or os.getenv("VERCEL_DASHBOARD_URL", ""),
     }
 
     # ── Validate required keys ────────────────────────────────
