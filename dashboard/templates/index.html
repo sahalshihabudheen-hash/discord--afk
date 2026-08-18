@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ owner_name }}'s AFK Control</title>
+  <meta name="description" content="Real-time Discord AFK monitor — view and track all AI-replied conversations." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+
+  <style>
+    /* ── Design Tokens ─────────────────────────────────────── */
+    :root {
+      --bg-0: #0b0e14;
+      --bg-1: #0f1318;
+      --bg-2: #141920;
+      --bg-3: #1a2030;
+      --border: rgba(255,255,255,0.07);
+      --border-hover: rgba(255,255,255,0.13);
+      --text-1: #edf0f5;
+      --text-2: #8a93a8;
+      --text-3: #4a5568;
+      --accent: #4f8ef7;
+      --accent-dim: rgba(79,142,247,0.12);
+      --green: #34d399;
+      --green-dim: rgba(52,211,153,0.12);
+      --red: #f87171;
+      --red-dim: rgba(248,113,113,0.12);
+      --yellow: #fbbf24;
+      --purple: #a78bfa;
+      --user-bubble: rgba(79,142,247,0.15);
+      --ai-bubble: rgba(52,211,153,0.1);
+      --r: 10px;
+      --r-sm: 6px;
+      --r-lg: 16px;
+      --transition: 0.18s ease;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-0);
+      color: var(--text-1);
+      font-size: 14px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout ────────────────────────────────────────────── */
+    .app {
+      display: grid;
+      grid-template-rows: 58px 1fr;
+      grid-template-columns: 270px 1fr;
+      height: 100vh;
+    }
+
+    /* ── Topbar ────────────────────────────────────────────── */
+    .topbar {
+      grid-column: 1 / -1;
+      background: var(--bg-1);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      gap: 14px;
+      backdrop-filter: blur(12px);
+      position: relative;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--text-1);
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+    }
+
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: blink 2.2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(52,211,153,0.4); }
+      50% { opacity: 0.5; box-shadow: 0 0 0 4px rgba(52,211,153,0); }
+    }
+
+    /* Stat chips */
+    .topbar-stats {
+      display: flex;
+      gap: 6px;
+      margin-left: auto;
+    }
+
+    .chip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 11px;
+      font-size: 12px;
+      color: var(--text-2);
+      white-space: nowrap;
+      transition: border-color var(--transition);
+    }
+
+    .chip:hover { border-color: var(--border-hover); }
+    .chip strong { color: var(--text-1); font-weight: 600; }
+    .chip .emoji { font-size: 13px; }
+
+    /* Connection */
+    .conn-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-3);
+    }
+
+    .conn-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--text-3);
+      transition: background var(--transition);
+      flex-shrink: 0;
+    }
+
+    .conn-dot.on { background: var(--green); }
+
+
+
+    /* AFK Toggle */
+    .afk-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 6px 14px 6px 10px;
+      cursor: pointer;
+      transition: border-color var(--transition), background var(--transition);
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .afk-btn:hover { border-color: var(--border-hover); background: var(--bg-2); }
+
+    .afk-text {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .afk-text.on  { color: var(--green); }
+    .afk-text.off { color: var(--red); }
+
+    .sw {
+      width: 34px; height: 19px;
+      background: var(--bg-0);
+      border-radius: 10px;
+      position: relative;
+      transition: background var(--transition);
+      flex-shrink: 0;
+    }
+
+    .sw.on { background: var(--green); }
+
+    .sw-knob {
+      width: 15px; height: 15px;
+      background: #fff;
+      border-radius: 50%;
+      position: absolute;
+      top: 2px; left: 2px;
+      transition: transform var(--transition);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    }
+
+    .sw.on .sw-knob { transform: translateX(15px); }
+
+    /* ── Sidebar ───────────────────────────────────────────── */
+    .sidebar {
+      background: var(--bg-1);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-head {
+      padding: 14px 16px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .convo-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px;
+    }
+
+    .convo-list::-webkit-scrollbar { width: 3px; }
+    .convo-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .convo-item {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 9px 10px;
+      border-radius: var(--r);
+      cursor: pointer;
+      transition: background var(--transition);
+      border: 1px solid transparent;
+    }
+
+    .convo-item:hover { background: var(--bg-2); }
+    .convo-item.active {
+      background: var(--accent-dim);
+      border-color: rgba(79,142,247,0.2);
+    }
+
+    .convo-av {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #4f8ef7, #a78bfa);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 15px;
+      color: #fff;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .convo-av img { width: 100%; height: 100%; object-fit: cover; }
+
+    .convo-info { flex: 1; min-width: 0; }
+
+    .convo-name {
+      font-weight: 600;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .convo-preview {
+      font-size: 12px;
+      color: var(--text-2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .unread-badge {
+      min-width: 18px;
+      height: 18px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 9px;
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 5px;
+      flex-shrink: 0;
+    }
+
+    /* ── Chat Area ─────────────────────────────────────────── */
+    .chat-area {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-0);
+      overflow: hidden;
+    }
+
+    .chat-header {
+      padding: 14px 20px;
+      background: var(--bg-1);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .chat-header-av {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #4f8ef7, #a78bfa);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 13px; color: #fff;
+      flex-shrink: 0; overflow: hidden;
+    }
+
+    .chat-header-av img { width: 100%; height: 100%; object-fit: cover; }
+
+    .chat-header-name { font-weight: 600; font-size: 15px; }
+    .chat-header-sub { font-size: 11px; color: var(--text-2); }
+
+    .chat-type-badge {
+      margin-left: auto;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 20px;
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    /* Message scroll area */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .messages::-webkit-scrollbar { width: 4px; }
+    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* Date dividers */
+    .date-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-3);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .date-divider::before,
+    .date-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Empty state */
+    .empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      color: var(--text-3);
+      padding: 40px;
+      text-align: center;
+    }
+
+    .empty-icon { font-size: 52px; opacity: 0.5; }
+    .empty-title { font-size: 17px; font-weight: 600; color: var(--text-2); }
+    .empty-sub { font-size: 13px; max-width: 280px; }
+
+    /* ── Message Bubbles ──────────────────────────────────── */
+    .msg-row {
+      display: flex;
+      gap: 9px;
+      animation: fadeUp 0.22s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg-row.assistant { flex-direction: row-reverse; }
+
+    .msg-av {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: #fff;
+      overflow: hidden; align-self: flex-end;
+    }
+
+    .msg-av.user-av { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+    .msg-av.ai-av   { background: linear-gradient(135deg, #10b981, #059669); }
+    .msg-av img { width: 100%; height: 100%; object-fit: cover; }
+
+    .msg-wrap {
+      max-width: 62%;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .msg-row.assistant .msg-wrap { align-items: flex-end; }
+
+    .msg-meta {
+      font-size: 10px;
+      color: var(--text-3);
+      font-weight: 500;
+      padding: 0 4px;
+    }
+
+    .bubble {
+      padding: 9px 13px;
+      border-radius: 14px;
+      font-size: 13.5px;
+      line-height: 1.55;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .msg-row.user .bubble {
+      background: var(--user-bubble);
+      border: 1px solid rgba(79,142,247,0.15);
+      border-bottom-left-radius: 3px;
+    }
+
+    .msg-row.assistant .bubble {
+      background: var(--ai-bubble);
+      border: 1px solid rgba(52,211,153,0.15);
+      border-bottom-right-radius: 3px;
+    }
+
+
+
+    /* ── Toasts ────────────────────────────────────────────── */
+    #toasts {
+      position: fixed;
+      bottom: 18px; right: 18px;
+      display: flex; flex-direction: column; gap: 8px;
+      z-index: 999;
+      pointer-events: none;
+    }
+
+    .toast {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: var(--bg-2);
+      border: 1px solid var(--border-hover);
+      border-radius: var(--r);
+      padding: 12px 15px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      animation: toastIn 0.28s cubic-bezier(0.34,1.56,0.64,1);
+      max-width: 300px;
+      pointer-events: all;
+    }
+
+    @keyframes toastIn {
+      from { transform: translateX(120px); opacity: 0; }
+      to   { transform: translateX(0); opacity: 1; }
+    }
+
+    .toast.out {
+      animation: toastOut 0.22s ease forwards;
+    }
+
+    @keyframes toastOut {
+      to { transform: translateX(120px); opacity: 0; }
+    }
+
+    .toast-icon { font-size: 18px; flex-shrink: 0; }
+    .toast-title { font-size: 13px; font-weight: 600; color: var(--text-1); }
+    .toast-body { font-size: 12px; color: var(--text-2); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+
+    /* ── Responsive ────────────────────────────────────────── */
+    @media (max-width: 680px) {
+      .app { grid-template-columns: 1fr; grid-template-rows: 58px 52px 1fr; }
+      .sidebar { grid-row: 2; border-right: none; border-bottom: 1px solid var(--border); flex-direction: row; }
+      .sidebar-head { display: none; }
+      .convo-list { display: flex; flex-direction: row; gap: 6px; padding: 8px; overflow-x: auto; overflow-y: hidden; }
+      .convo-item { flex-direction: column; align-items: center; min-width: 60px; padding: 6px; }
+      .convo-info, .unread-badge { display: none; }
+      .topbar-stats { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ── Topbar ───────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon">🤖</div>
+      <span>{{ owner_name }}'s AFK Control</span>
+      <div class="live-dot" id="liveDot" style="display:none"></div>
+    </div>
+
+    <div class="topbar-stats">
+      <div class="chip"><span class="emoji">💬</span> Convos: <strong id="statConvos">0</strong></div>
+      <div class="chip"><span class="emoji">📨</span> Received: <strong id="statMsgs">0</strong></div>
+      <div class="chip"><span class="emoji">🤖</span> Replies: <strong id="statReplies">0</strong></div>
+
+    </div>
+
+    <div class="conn-badge" id="connBadge">
+      <div class="conn-dot" id="connDot"></div>
+      <span id="connLabel">Connecting…</span>
+    </div>
+
+    <div class="afk-btn" id="afkBtn" onclick="toggleAFK()" role="button" aria-pressed="{{ 'true' if afk_mode else 'false' }}">
+      <div class="sw" id="sw"><div class="sw-knob"></div></div>
+      <span class="afk-text" id="afkText">AFK</span>
+    </div>
+  </header>
+
+  <!-- ── Sidebar ──────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-head">Conversations</div>
+    <div class="convo-list" id="convoList">
+      <div style="padding:20px; text-align:center; color:var(--text-3); font-size:12px;">
+        Waiting for messages…
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Chat Area ────────────────────────────────────────── -->
+  <main class="chat-area" id="chatArea">
+    <div class="empty" id="emptyState">
+      <div class="empty-icon">💬</div>
+      <div class="empty-title">No conversation selected</div>
+      <div class="empty-sub">When someone DMs {{ owner_name }}, it'll appear here live. Select a conversation on the left to view messages.</div>
+    </div>
+  </main>
+
+</div>
+
+<!-- ── Toasts ────────────────────────────────────────────── -->
+<div id="toasts"></div>
+
+<script>
+  // ── State ─────────────────────────────────────────────────
+  const socket = io();
+  let afkMode = {{ 'true' if afk_mode else 'false' }};
+  const convos = {};   // { uid: { ...meta, messages: [] } }
+  let activeUid = null;
+  const unread = {};   // { uid: count }
+
+  // ── Socket events ─────────────────────────────────────────
+  socket.on('connect', () => setConnected(true));
+  socket.on('disconnect', () => setConnected(false));
+
+  socket.on('initial_state', data => {
+    afkMode = data.afk_mode;
+    renderAFKBtn();
+    if (data.stats) renderStats(data.stats);
+    if (data.conversations) {
+      data.conversations.forEach(c => {
+        convos[c.user_id] = { ...c, messages: c.messages || [] };
+      });
+      renderConvoList();
+    }
+  });
+
+  socket.on('new_message', data => {
+    const uid = data.user_id;
+
+    if (!convos[uid]) {
+      convos[uid] = {
+        user_id: uid, user_name: data.user_name,
+        messages: [], total_messages: 0, ai_replies: 0,
+        avatar: data.avatar || null, last_updated: data.timestamp,
+        last_message: '', channel_type: data.channel_type || 'DM',
+      };
+    }
+
+    const c = convos[uid];
+    c.messages.push(data);
+    c.last_updated = data.timestamp;
+    c.last_message = data.content;
+    if (data.avatar) c.avatar = data.avatar;
+    if (data.role === 'user') c.total_messages++;
+    else c.ai_replies++;
+
+    renderConvoList();
+
+    if (activeUid === uid) {
+      appendMsg(data);
+      scrollBottom();
+    } else if (data.role === 'user') {
+      unread[uid] = (unread[uid] || 0) + 1;
+      renderConvoList();
+      toast('📨 New DM', `${data.user_name}: ${data.content}`);
+    }
+  });
+
+  socket.on('stats_update', renderStats);
+
+  socket.on('conversations_update', list => {
+    list.forEach(c => {
+      if (!convos[c.user_id]) convos[c.user_id] = { ...c, messages: [] };
+      else Object.assign(convos[c.user_id], { ...c, messages: convos[c.user_id].messages });
+    });
+    renderConvoList();
+  });
+
+  socket.on('afk_toggle', data => { afkMode = data.afk_mode; renderAFKBtn(); });
+  socket.on('bot_ready', data => {
+    document.getElementById('liveDot').style.display = 'block';
+    toast('✅ Bot Online', `Logged in as ${data.username}`);
+  });
+  socket.on('error', data => toast('❌ Error', data.message, true));
+
+  // ── AFK Toggle ────────────────────────────────────────────
+  async function toggleAFK() {
+    const newMode = !afkMode;
+    try {
+      const res = await fetch('/api/toggle-afk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ afk_mode: newMode }),
+      });
+      const data = await res.json();
+      afkMode = data.afk_mode;
+      renderAFKBtn();
+    } catch (e) { console.error(e); }
+  }
+
+  function renderAFKBtn() {
+    const sw = document.getElementById('sw');
+    const txt = document.getElementById('afkText');
+    const btn = document.getElementById('afkBtn');
+    sw.classList.toggle('on', afkMode);
+    txt.textContent = `AFK: ${afkMode ? 'ON' : 'OFF'}`;
+    txt.className = `afk-text ${afkMode ? 'on' : 'off'}`;
+    btn.setAttribute('aria-pressed', String(afkMode));
+  }
+
+  // ── Sidebar ───────────────────────────────────────────────
+  function renderConvoList() {
+    const list = document.getElementById('convoList');
+    const sorted = Object.values(convos).sort(
+      (a, b) => new Date(b.last_updated) - new Date(a.last_updated)
+    );
+
+    if (!sorted.length) {
+      list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-3);font-size:12px;">Waiting for messages…</div>';
+      return;
+    }
+
+    list.innerHTML = sorted.map(c => {
+      const u = unread[c.user_id] || 0;
+      const active = activeUid === c.user_id ? 'active' : '';
+      const preview = esc(c.last_message);
+      return `
+        <div class="convo-item ${active}" data-uid="${c.user_id}" onclick="openConvo('${c.user_id}')">
+          <div class="convo-av">${avEl(c)}</div>
+          <div class="convo-info">
+            <div class="convo-name">${esc(c.user_name)}</div>
+            <div class="convo-preview">${preview}</div>
+          </div>
+          ${u ? `<div class="unread-badge">${u}</div>` : ''}
+        </div>`;
+    }).join('');
+  }
+
+  // ── Open conversation ─────────────────────────────────────
+  function openConvo(uid) {
+    activeUid = uid;
+    unread[uid] = 0;
+    renderConvoList();
+
+    const c = convos[uid];
+    if (!c) return;
+
+    const chatArea = document.getElementById('chatArea');
+    const msgs = (c.messages || []).map(renderMsg).join('');
+
+    chatArea.innerHTML = `
+      <div class="chat-header">
+        <div class="chat-header-av">${avEl(c)}</div>
+        <div>
+          <div class="chat-header-name">${esc(c.user_name)}</div>
+          <div class="chat-header-sub">${c.total_messages || 0} messages · ${c.ai_replies || 0} AI replies</div>
+        </div>
+        <div class="chat-type-badge">${esc(c.channel_type || 'DM')}</div>
+      </div>
+      <div class="messages" id="msgList">${msgs}</div>`;
+    scrollBottom();
+  }
+
+  function appendMsg(data) {
+    const list = document.getElementById('msgList');
+    if (list) list.insertAdjacentHTML('beforeend', renderMsg(data));
+  }
+
+  function renderMsg(data) {
+    const role = data.role;
+    const time = fmtTime(data.timestamp);
+    const label = role === 'assistant' ? '🤖 Bot' : esc(data.user_name || 'User');
+    const isGif = data.content && data.content.startsWith('[GIF:');
+
+    let bubbleHtml;
+    if (isGif) {
+      const urlMatch = data.content.match(/https?:\/\/[^\s]+/);
+      const gifUrl = urlMatch ? urlMatch[0] : '';
+      const moodMatch = data.content.match(/\[GIF:([^\]]+)\]/);
+      const moodText = moodMatch ? moodMatch[1] : 'GIF';
+      bubbleHtml = `<div class="bubble" style="padding:4px;background:none;border:none;"><img src="${gifUrl}" alt="${esc(moodText)}" style="max-width:240px;border-radius:10px;display:block;" loading="lazy"/></div>`;
+    } else {
+      bubbleHtml = `<div class="bubble">${esc(data.content)}</div>`;
+    }
+
+    const avContent = role === 'assistant'
+      ? '🤖'
+      : (data.avatar ? `<img src="${data.avatar}" alt="" />` : initial(data.user_name));
+
+    return `
+      <div class="msg-row ${role}">
+        <div class="msg-av ${role === 'assistant' ? 'ai-av' : 'user-av'}">${avContent}</div>
+        <div class="msg-wrap">
+          <div class="msg-meta">${label} · ${time}</div>
+          ${bubbleHtml}
+        </div>
+      </div>`;
+  }
+
+  // ── Stats ─────────────────────────────────────────────────
+  function renderStats(s) {
+    document.getElementById('statConvos').textContent = s.total_conversations || 0;
+    document.getElementById('statMsgs').textContent = s.total_messages || 0;
+    document.getElementById('statReplies').textContent = s.total_ai_replies || 0;
+  }
+
+  // ── Connection ────────────────────────────────────────────
+  function setConnected(on) {
+    document.getElementById('connDot').classList.toggle('on', on);
+    document.getElementById('connLabel').textContent = on ? 'Connected' : 'Disconnected';
+  }
+
+  // ── Toasts ───────────────────────────────────────────────
+  function toast(title, body, isError = false) {
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.innerHTML = `
+      <div class="toast-icon">${isError ? '❌' : '💬'}</div>
+      <div><div class="toast-title">${esc(title)}</div><div class="toast-body">${esc(body)}</div></div>`;
+    document.getElementById('toasts').appendChild(el);
+    setTimeout(() => {
+      el.classList.add('out');
+      setTimeout(() => el.remove(), 250);
+    }, 4500);
+  }
+
+  // ── Helpers ───────────────────────────────────────────────
+  function scrollBottom() {
+    const l = document.getElementById('msgList');
+    if (l) requestAnimationFrame(() => { l.scrollTop = l.scrollHeight; });
+  }
+
+  function esc(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function initial(name) {
+    return ((name || '?').charAt(0)).toUpperCase();
+  }
+
+  function avEl(c) {
+    return c.avatar
+      ? `<img src="${c.avatar}" alt="" />`
+      : initial(c.user_name);
+  }
+
+  function fmtTime(ts) {
+    try {
+      const d = new Date(ts);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch { return ''; }
+  }
+
+  // ── Boot ──────────────────────────────────────────────────
+  renderAFKBtn();
+
+  fetch('/api/state').then(r => r.json()).then(d => {
+    afkMode = d.afk_mode;
+    renderAFKBtn();
+    if (d.stats) renderStats(d.stats);
+    if (d.conversations) {
+      d.conversations.forEach(c => {
+        convos[c.user_id] = { ...c, messages: c.messages || [] };
+      });
+      renderConvoList();
+    }
+  }).catch(() => {});
+</script>
+</body>
+</html>
