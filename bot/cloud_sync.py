@@ -64,3 +64,12 @@ class CloudSync:
                     # If user toggled AFK on the Vercel mobile web app, update local bot!
                     if self.bot and cloud_afk is not None and cloud_afk != self.bot.afk_mode:
                         self.bot.toggle_afk(cloud_afk)
+
+                    # Process pending manual messages sent from Vercel web app
+                    pending_msgs = data.get("pending_messages", [])
+                    if pending_msgs and self.bot:
+                        for msg in pending_msgs:
+                            user_id = msg.get("user_id")
+                            content = msg.get("content")
+                            if user_id and content:
+                                asyncio.create_task(self.bot.send_manual_message(user_id, content))

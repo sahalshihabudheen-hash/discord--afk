@@ -78,6 +78,29 @@ def create_app(config: dict):
 
         return jsonify({"success": True, "afk_mode": new_mode})
 
+    @app.route("/api/send-message", methods=["POST"])
+    def send_message():
+        data = request.get_json() or {}
+        user_id = data.get("user_id")
+        content = data.get("content")
+
+        if not user_id or not content:
+            return jsonify({"success": False, "error": "Missing user_id or content"}), 400
+
+        if state["bot"] is not None:
+            import asyncio
+            fut = asyncio.run_coroutine_threadsafe(
+                state["bot"].send_manual_message(user_id, content),
+                state["bot"].loop
+            )
+            try:
+                success = fut.result(timeout=5)
+                return jsonify({"success": success})
+            except Exception as e:
+                return jsonify({"success": False, "error": str(e)}), 500
+        else:
+            return jsonify({"success": False, "error": "Bot is not active"}), 500
+
     # ── SocketIO events ───────────────────────────────────────────────
 
     @socketio.on("connect")

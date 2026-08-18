@@ -1,5 +1,30 @@
 // In-memory global store for Vercel deployment with rich Discord profile & media support
 
+import fs from "fs";
+import path from "path";
+
+const FILE_PATH = path.join(process.cwd(), "conversations.json");
+
+function loadFromFile() {
+  try {
+    if (fs.existsSync(FILE_PATH)) {
+      const data = fs.readFileSync(FILE_PATH, "utf-8");
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.warn("Unable to read conversations.json:", e);
+  }
+  return null;
+}
+
+export function saveToFile(state: DashboardState) {
+  try {
+    fs.writeFileSync(FILE_PATH, JSON.stringify(state, null, 2), "utf-8");
+  } catch (e) {
+    // Ignore error if filesystem is read-only (e.g. Vercel)
+  }
+}
+
 export interface UserProfile {
   avatar?: string | null;
   avatar_decoration?: string | null;
@@ -20,6 +45,10 @@ export interface Message {
   attachments?: string[];
   stickers?: string[];
   reactions?: string[];
+  is_deleted?: boolean;
+  is_edited?: boolean;
+  deleted_at?: string | null;
+  edited_at?: string | null;
 }
 
 export interface Conversation {
@@ -48,9 +77,31 @@ export interface DashboardState {
   conversations: Conversation[];
 }
 
+export interface PendingMessage {
+  user_id: string;
+  content: string;
+}
+
 // Global reference for Node serverless environment
 declare global {
   var __GLOBAL_BOT_STATE: DashboardState | undefined;
+  var __PENDING_MESSAGES: PendingMessage[] | undefined;
+}
+
+export function getPendingMessages(): PendingMessage[] {
+  if (!global.__PENDING_MESSAGES) {
+    global.__PENDING_MESSAGES = [];
+  }
+  return global.__PENDING_MESSAGES;
+}
+
+export function addPendingMessage(msg: PendingMessage) {
+  const queue = getPendingMessages();
+  queue.push(msg);
+}
+
+export function clearPendingMessages() {
+  global.__PENDING_MESSAGES = [];
 }
 
 const defaultState: DashboardState = {
@@ -68,7 +119,12 @@ const defaultState: DashboardState = {
 
 export function getGlobalState(): DashboardState {
   if (!global.__GLOBAL_BOT_STATE) {
-    global.__GLOBAL_BOT_STATE = { ...defaultState };
+    const loaded = loadFromFile();
+    if (loaded) {
+      global.__GLOBAL_BOT_STATE = loaded;
+    } else {
+      global.__GLOBAL_BOT_STATE = { ...defaultState };
+    }
   }
 
   // Check if bot sent a heartbeat in the last 45 seconds
@@ -89,6 +145,7 @@ export function updateGlobalState(partial: Partial<DashboardState>): DashboardSt
     last_sync: new Date().toISOString(),
     bot_connected: true,
   };
+  saveToFile(global.__GLOBAL_BOT_STATE);
   return global.__GLOBAL_BOT_STATE;
 }
 
@@ -96,5 +153,6 @@ export function toggleAFK(newMode?: boolean): boolean {
   const current = getGlobalState();
   const target = newMode !== undefined ? newMode : !current.afk_mode;
   current.afk_mode = target;
+  saveToFile(current);
   return target;
 }

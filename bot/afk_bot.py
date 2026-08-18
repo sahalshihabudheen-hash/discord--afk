@@ -54,6 +54,64 @@ class AFKBot(discord.Client):
         print(f"[AFK] Mode toggled → {status}")
         self.emit("afk_toggle", {"afk_mode": mode, "timestamp": datetime.now().isoformat()})
 
+    async def send_manual_message(self, user_id: str, content: str) -> bool:
+        """Manually send a message to a user or group DM channel from the dashboard."""
+        try:
+            convo = self.store.get_conversation(user_id)
+            channel_id = convo.get("channel_id") if convo else None
+            
+            channel = None
+            if channel_id:
+                try:
+                    channel = self.get_channel(int(channel_id))
+                    if not channel:
+                        channel = await self.fetch_channel(int(channel_id))
+                except Exception as ce:
+                    print(f"[Manual Send] Could not fetch channel {channel_id}: {ce}")
+            
+            if not channel:
+                try:
+                    user = self.get_user(int(user_id))
+                    if not user:
+                        user = await self.fetch_user(int(user_id))
+                    if user:
+                        channel = await user.create_dm()
+                except Exception as ue:
+                    print(f"[Manual Send] Could not fetch user or create DM for {user_id}: {ue}")
+
+            if not channel:
+                print(f"[Manual Send] Error: Conversation channel or user not found for {user_id}")
+                return False
+
+            await channel.send(content)
+            print(f"[Manual Send] Sent message to {user_id} in channel {channel}: {content}")
+
+            self.store.add_message(
+                user_id=user_id,
+                role="assistant",
+                content=content,
+                user_name=convo.get("user_name") if convo else None,
+                channel_id=str(channel.id)
+            )
+
+            self.emit(
+                "new_message",
+                {
+                    "user_id": user_id,
+                    "user_name": convo.get("user_name") if convo else user_id,
+                    "content": content,
+                    "role": "assistant",
+                    "channel_type": "DM" if isinstance(channel, discord.DMChannel) else "Group DM",
+                    "timestamp": datetime.now().isoformat(),
+                },
+            )
+            self.emit("stats_update", self.store.get_stats())
+            self.emit("conversations_update", self.store.get_sorted_conversations())
+            return True
+        except Exception as e:
+            print(f"[Manual Send] Failed to send message: {e}")
+            return False
+
     # ─── Discord events ──────────────────────────────────────────────
 
     async def on_ready(self):
@@ -130,12 +188,14 @@ class AFKBot(discord.Client):
 
         # Persist incoming message
         self.store.add_message(
-            user_id,
-            "user",
-            message.content,
-            user_name,
+            user_id=user_id,
+            role="user",
+            content=message.content,
+            user_name=user_name,
             attachments=attachment_urls,
             stickers=sticker_urls,
+            message_id=str(message.id),
+            channel_id=str(message.channel.id),
         )
 
         # Notify dashboard of incoming message
@@ -178,7 +238,13 @@ class AFKBot(discord.Client):
                 reply = f"hey {user_name}! {self.owner_name} is away rn, he'll reply as soon as he's back 🙌"
 
             # Store and send reply (directly quoting the user's message)
-            self.store.add_message(user_id, "assistant", reply, user_name)
+            self.store.add_message(
+                user_id=user_id,
+                role="assistant",
+                content=reply,
+                user_name=user_name,
+                channel_id=str(message.channel.id),
+            )
             try:
                 await message.reply(reply, mention_author=False)
             except Exception:
@@ -249,4 +315,24 @@ class AFKBot(discord.Client):
         self.store.add_reaction(user_id, emoji_str)
         self.emit("stats_update", self.store.get_stats())
         self.emit("conversations_update", self.store.get_sorted_conversations())
+
+    async def on_message_delete(self, message: discord.Message):
+        is_dm = isinstance(message.channel, discord.DMChannel)
+        is_group = isinstance(message.channel, discord.GroupChannel)
+        if not (is_dm or is_group):
+            return
+
+        self.store.mark_deleted(str(message.id))
+        self.emit("conversations_update", self.store.get_sorted_conversations())
+
+    async def on_message_edit(self, before: discord.Message, after: discord.Message):
+        is_dm = isinstance(after.channel, discord.DMChannel)
+        is_group = isinstance(after.channel, discord.GroupChannel)
+        if not (is_dm or is_group):
+            return
+
+        if before.content != after.content:
+            self.store.mark_edited(str(after.id), after.content)
+            self.emit("conversations_update", self.store.get_sorted_conversations())
+
 

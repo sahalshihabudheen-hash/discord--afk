@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getGlobalState, updateGlobalState } from "@/lib/store";
+import { getGlobalState, updateGlobalState, getPendingMessages, clearPendingMessages } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
@@ -20,11 +20,16 @@ export async function POST(req: Request) {
 
     const currentState = getGlobalState();
 
+    // Fetch pending manual messages
+    const pending = [...getPendingMessages()];
+    clearPendingMessages();
+
     // Return the cloud's desired AFK mode back to the bot
     return NextResponse.json({
       success: true,
       afk_mode: currentState.afk_mode,
       timestamp: new Date().toISOString(),
+      pending_messages: pending,
     });
   } catch (error: any) {
     return NextResponse.json(

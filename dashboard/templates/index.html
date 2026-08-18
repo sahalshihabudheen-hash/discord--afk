@@ -354,6 +354,52 @@
       gap: 14px;
     }
 
+    .chat-input-bar {
+      display: flex;
+      gap: 10px;
+      padding: 12px 20px;
+      background: var(--bg-1);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .chat-input-bar input {
+      flex: 1;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 10px 14px;
+      color: var(--text-1);
+      font-size: 13.5px;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+
+    .chat-input-bar input:focus {
+      border-color: var(--accent);
+    }
+
+    .chat-input-bar button {
+      background: var(--accent);
+      border: none;
+      border-radius: var(--r);
+      padding: 0 20px;
+      color: #fff;
+      font-weight: 600;
+      font-size: 13.5px;
+      cursor: pointer;
+      transition: background var(--transition);
+    }
+
+    .chat-input-bar button:hover {
+      background: #3b7ad9;
+    }
+
+    .chat-input-bar button:disabled {
+      background: var(--text-3);
+      cursor: not-allowed;
+    }
+
     .messages::-webkit-scrollbar { width: 4px; }
     .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
@@ -713,7 +759,11 @@
         </div>
         <div class="chat-type-badge">${esc(c.channel_type || 'DM')}</div>
       </div>
-      <div class="messages" id="msgList">${msgs}</div>`;
+      <div class="messages" id="msgList">${msgs}</div>
+      <div class="chat-input-bar">
+        <input type="text" id="manualMsgInput" placeholder="Type a message manually..." onkeydown="handleInputKey(event)" />
+        <button id="sendMsgBtn" onclick="sendManualMsg()">Send</button>
+      </div>`;
     scrollBottom();
   }
 
@@ -806,6 +856,43 @@
       const d = new Date(ts);
       return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } catch { return ''; }
+  }
+
+  // ── Manual message sending ────────────────────────────────
+  async function sendManualMsg() {
+    const input = document.getElementById('manualMsgInput');
+    const btn = document.getElementById('sendMsgBtn');
+    if (!input || !input.value.trim() || !activeUid) return;
+
+    const content = input.value.trim();
+    input.value = '';
+    input.disabled = true;
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/api/send-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: activeUid, content: content }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        toast('❌ Send Failed', data.error || 'Unknown error');
+      }
+    } catch (e) {
+      console.error(e);
+      toast('❌ Send Failed', 'Network error');
+    } finally {
+      input.disabled = false;
+      btn.disabled = false;
+      input.focus();
+    }
+  }
+
+  function handleInputKey(e) {
+    if (e.key === 'Enter') {
+      sendManualMsg();
+    }
   }
 
   // ── Boot ──────────────────────────────────────────────────

@@ -56,7 +56,33 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isToggling, setIsToggling] = useState(false);
   const [showProfileCard, setShowProfileCard] = useState(true);
+  const [inputText, setInputText] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleSendMessage = async () => {
+    if (!inputText.trim() || !selectedUserId || isSending) return;
+    setIsSending(true);
+    try {
+      const res = await fetch("/api/send-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: selectedUserId, content: inputText.trim() }),
+      });
+      if (res.ok) {
+        setInputText("");
+        fetchState();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(`Failed to send message: ${errData.error || "Unknown error"}`);
+      }
+    } catch (e) {
+      console.error("Send message error:", e);
+      alert("Failed to send message due to a network error.");
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   // Poll state from API every 2.5 seconds
   const fetchState = async () => {
@@ -590,6 +616,59 @@ export default function Dashboard() {
                   );
                 })}
                 <div ref={messagesEndRef} />
+              </div>
+
+              {/* Chat Input Bar */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: "10px",
+                  padding: "12px 24px",
+                  backgroundColor: "var(--bg-surface)",
+                  borderTop: "1px solid var(--border-subtle)",
+                  flexShrink: 0,
+                }}
+              >
+                <input
+                  type="text"
+                  placeholder="Type a message manually..."
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleSendMessage();
+                    }
+                  }}
+                  disabled={isSending}
+                  style={{
+                    flex: 1,
+                    padding: "10px 14px",
+                    borderRadius: "8px",
+                    backgroundColor: "var(--bg-base)",
+                    border: "1px solid var(--border-subtle)",
+                    color: "var(--text-primary)",
+                    fontSize: "13.5px",
+                    outline: "none",
+                  }}
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={isSending || !inputText.trim()}
+                  style={{
+                    backgroundColor: "var(--accent-emerald)",
+                    color: "#000",
+                    border: "none",
+                    borderRadius: "8px",
+                    padding: "0 20px",
+                    fontWeight: "700",
+                    fontSize: "13.5px",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    opacity: isSending || !inputText.trim() ? 0.6 : 1,
+                  }}
+                >
+                  {isSending ? "Sending..." : "Send"}
+                </button>
               </div>
             </>
           ) : (
