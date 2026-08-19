@@ -41,6 +41,7 @@ interface Conversation {
   avatar?: string | null;
   channel_type?: string;
   messages: Message[];
+  ai_disabled?: boolean;
 }
 
 interface DashboardState {
@@ -64,7 +65,38 @@ export default function Dashboard() {
   const [showProfileCard, setShowProfileCard] = useState(true);
   const [inputText, setInputText] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isTogglingAI, setIsTogglingAI] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleToggleAI = async () => {
+    if (isTogglingAI || !selectedUserId || !state) return;
+    setIsTogglingAI(true);
+    try {
+      const convo = state.conversations.find((c) => c.user_id === selectedUserId);
+      const nextDisabled = convo ? !convo.ai_disabled : true;
+      const res = await fetch("/api/toggle-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: selectedUserId, ai_disabled: nextDisabled }),
+      });
+      if (res.ok) {
+        const resData = await res.json();
+        setState((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            conversations: prev.conversations.map((c) =>
+              c.user_id === selectedUserId ? { ...c, ai_disabled: resData.ai_disabled } : c
+            ),
+          };
+        });
+      }
+    } catch (e) {
+      console.error("Toggle AI error:", e);
+    } finally {
+      setIsTogglingAI(false);
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!inputText.trim() || !selectedUserId || isSending) return;
@@ -410,7 +442,7 @@ export default function Dashboard() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2px" }}>
                         <span style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {convo.user_name}
+                          {convo.user_name} {convo.ai_disabled && <span style={{ fontSize: "10.5px", color: "var(--accent-rose)", fontWeight: "700", marginLeft: "4px", backgroundColor: "rgba(239, 68, 68, 0.15)", padding: "1px 5px", borderRadius: "4px" }}>AI OFF</span>}
                         </span>
                         <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
                           {formatTime(convo.last_updated)}
@@ -505,20 +537,40 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setShowProfileCard(!showProfileCard)}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: "8px",
-                    backgroundColor: "var(--bg-surface-elevated)",
-                    border: "1px solid var(--border-subtle)",
-                    color: "var(--text-secondary)",
-                    fontSize: "12px",
-                    cursor: "pointer",
-                  }}
-                >
-                  {showProfileCard ? "Hide Profile" : "Show Profile"}
-                </button>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    onClick={handleToggleAI}
+                    disabled={isTogglingAI}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: "8px",
+                      backgroundColor: selectedConvo.ai_disabled ? "rgba(239, 68, 68, 0.15)" : "rgba(16, 185, 129, 0.15)",
+                      border: selectedConvo.ai_disabled ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid rgba(16, 185, 129, 0.3)",
+                      color: selectedConvo.ai_disabled ? "var(--accent-rose)" : "var(--accent-emerald)",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    {selectedConvo.ai_disabled ? "🤖 AI: Disabled" : "🤖 AI: Enabled"}
+                  </button>
+
+                  <button
+                    onClick={() => setShowProfileCard(!showProfileCard)}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: "8px",
+                      backgroundColor: "var(--bg-surface-elevated)",
+                      border: "1px solid var(--border-subtle)",
+                      color: "var(--text-secondary)",
+                      fontSize: "12px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {showProfileCard ? "Hide Profile" : "Show Profile"}
+                  </button>
+                </div>
               </div>
 
               {/* Message History */}
@@ -536,15 +588,27 @@ export default function Dashboard() {
                     if (/\.(gif|png|jpg|jpeg|webp|mp4|mov|webm)(\?.*)?$/.test(l)) return true;
                     // Match known GIF/media CDN domains (no extension needed)
                     const gifDomains = [
-                      "tenor.com", "giphy.com", "klipy.com",
+                      "giphy.com", "klipy.com",
                       "imgur.com", "cdn.discordapp.com", "media.discordapp.net",
                       "i.imgur.com", "media.tenor.com", "media1.tenor.com",
                       "c.tenor.com", "media.giphy.com", "i.giphy.com",
                     ];
                     return gifDomains.some((d) => l.includes(d));
                   };
+
+                  // Tenor short-link pages (e.g. tenor.com/t5rAQpd0GBf.gif) — not direct media
+                  const isTenorShortLink = (url: string) => {
+                    const l = url.toLowerCase();
+                    return (
+                      /tenor\.com\/[a-zA-Z0-9]+/.test(l) &&
+                      !l.includes("media.tenor.com") &&
+                      !l.includes("c.tenor.com") &&
+                      !l.includes("media1.tenor.com")
+                    );
+                  };
+
                   // A message is a "plain media URL" if it's ONLY a URL pointing to media
-                  const isPlainUrl = /^https?:\/\/\S+$/.test(trimmed) && isMediaUrl(trimmed);
+                  const isPlainUrl = /^https?:\/\/\S+$/.test(trimmed) && (isMediaUrl(trimmed) || isTenorShortLink(trimmed));
 
                   const bubbleBase: React.CSSProperties = {
                     maxWidth: "75%",
@@ -610,19 +674,38 @@ export default function Dashboard() {
                         }}>
                           🗑️ {msg.content || "[Message deleted]"} <span style={{ fontSize: "11px", opacity: 0.6 }}>(deleted)</span>
                         </div>
-                      ) : isBotGif ? (
-                        <div style={{ maxWidth: "260px", borderRadius: "12px", overflow: "hidden", border: "1px solid var(--border-subtle)" }}>
-                          <img
-                            src={msg.content.replace(/\[GIF:[^\]]+\]/, "")}
-                            alt="GIF"
-                            style={{ width: "100%", borderRadius: "12px", display: "block" }}
-                          />
-                        </div>
-                      ) : isPlainUrl ? (
-                        <div style={{ maxWidth: "280px", borderRadius: "12px", overflow: "hidden", border: "1px solid var(--border-subtle)" }}>
-                          <img src={trimmed} alt="Media" style={{ width: "100%", borderRadius: "12px", display: "block" }} />
-                        </div>
-                      ) : (
+                      ) : isBotGif ? (() => {
+                        const gifSrc = msg.content.replace(/\[GIF:[^\]]+\]/, "");
+                        const isTenor = isTenorShortLink(gifSrc);
+                        return isTenor ? (
+                          <div style={{ maxWidth: "260px", borderRadius: "12px", overflow: "hidden", border: "1px solid var(--border-subtle)" }}>
+                            <iframe
+                              src={gifSrc}
+                              style={{ width: "260px", height: "200px", border: "none", borderRadius: "12px", display: "block" }}
+                              allowFullScreen
+                            />
+                          </div>
+                        ) : (
+                          <div style={{ maxWidth: "260px", borderRadius: "12px", overflow: "hidden", border: "1px solid var(--border-subtle)" }}>
+                            <img src={gifSrc} alt="GIF" style={{ width: "100%", borderRadius: "12px", display: "block" }} />
+                          </div>
+                        );
+                      })() : isPlainUrl ? (() => {
+                        const isTenor = isTenorShortLink(trimmed);
+                        return isTenor ? (
+                          <div style={{ maxWidth: "280px", borderRadius: "12px", overflow: "hidden", border: "1px solid var(--border-subtle)" }}>
+                            <iframe
+                              src={trimmed}
+                              style={{ width: "280px", height: "220px", border: "none", borderRadius: "12px", display: "block" }}
+                              allowFullScreen
+                            />
+                          </div>
+                        ) : (
+                          <div style={{ maxWidth: "280px", borderRadius: "12px", overflow: "hidden", border: "1px solid var(--border-subtle)" }}>
+                            <img src={trimmed} alt="Media" style={{ width: "100%", borderRadius: "12px", display: "block" }} />
+                          </div>
+                        );
+                      })() : (
                         msg.content && (
                           <div style={{
                             ...bubbleBase,

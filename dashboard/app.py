@@ -78,6 +78,26 @@ def create_app(config: dict):
 
         return jsonify({"success": True, "afk_mode": new_mode})
 
+    @app.route("/api/toggle-ai", methods=["POST"])
+    def toggle_ai():
+        data = request.get_json() or {}
+        user_id = data.get("user_id")
+        ai_disabled = data.get("ai_disabled")
+
+        if not user_id:
+            return jsonify({"success": False, "error": "Missing user_id"}), 400
+
+        if state["bot"] is not None:
+            if ai_disabled is None:
+                ai_disabled = not state["bot"].store.is_ai_disabled(user_id)
+            state["bot"].store.set_ai_disabled(user_id, ai_disabled)
+            # Emit updated conversations
+            state["conversations"] = state["bot"].store.get_sorted_conversations()
+            socketio.emit("conversations_update", state["conversations"])
+            return jsonify({"success": True, "ai_disabled": ai_disabled})
+        else:
+            return jsonify({"success": False, "error": "Bot is not active"}), 500
+
     @app.route("/api/send-message", methods=["POST"])
     def send_message():
         data = request.get_json() or {}

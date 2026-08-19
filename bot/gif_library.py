@@ -8,47 +8,32 @@ import re
 # Curated direct GIF links by mood/situation
 GIF_COLLECTION = {
     "roast": [
-        "https://media.giphy.com/media/l8TPBIirERIp2/giphy.gif",          # Supa hot fire / roast
-        "https://media.giphy.com/media/xT1XGU1AHz9Fe8tmp2/giphy.gif",      # Mic drop
-        "https://media.giphy.com/media/26n6Gx9moCgs1qxxt/giphy.gif",      # Laughing hard
-        "https://media.giphy.com/media/j9mqKgQvkNOziGICfd/giphy.gif",      # Side eye / clown
-        "https://media.giphy.com/media/A7Zc53i8U59SHv9CAm/giphy.gif",      # Laughing point
+        "https://tenor.com/bDhW2.gif",                                    # Supa hot fire
+        "https://tenor.com/bxBKP.gif",                                    # Laughing point
+        "https://tenor.com/bDhW2.gif",                                    # Roast / oh
     ],
     "laugh": [
-        "https://media.giphy.com/media/10JhviFuU2gWD6/giphy.gif",          # Laughing
-        "https://media.giphy.com/media/ltIFdjNAasOwVvKhvx/giphy.gif",      # Rolling laughing
-        "https://media.giphy.com/media/I4Jmrcjnr8Zfq/giphy.gif",          # Lmao
-        "https://media.giphy.com/media/3oEjHAUOqG3lSS0f1C/giphy.gif",      # Muttley laugh
+        "https://tenor.com/bQ43V.gif",                                    # Lmao laughing
+        "https://tenor.com/b1Cmg.gif",                                    # Spongebob laughing
     ],
     "wave": [
-        "https://media.giphy.com/media/dzaUX7CAG0Ihi/giphy.gif",          # Hello wave
-        "https://media.giphy.com/media/3o7TKWpu2kVMB0150A/giphy.gif",      # Wave hi
-        "https://media.giphy.com/media/ASd0Ukj0y3qMM/giphy.gif",          # Cat waving
-        "https://media.giphy.com/media/bcKMiwCuBPuQA/giphy.gif",          # Forest Gump wave
+        "https://tenor.com/t5rAQpd0GBf.gif",                              # Hello wave
     ],
     "chill": [
-        "https://media.giphy.com/media/JQXaJaHdd8bVau3oNR/giphy.gif",      # Cat vibing
-        "https://media.giphy.com/media/mFYTaY7Gblo8783UXs/giphy.gif",      # Cool glasses
-        "https://media.giphy.com/media/3oKIPnAiaMCws8nOsE/giphy.gif",      # Kermit sipping tea
-        "https://media.giphy.com/media/g9582DNuQppxC/giphy.gif",          # Gatsby toast
+        "https://tenor.com/bV142.gif",                                    # Cat vibing
+        "https://tenor.com/bJZ1w.gif",                                    # Kermit sipping tea
     ],
     "afk": [
-        "https://media.giphy.com/media/mguPrVJAnEHIY/giphy.gif",          # Homer disappearing in bushes
-        "https://media.giphy.com/media/13HgwGsXF0aiGY/giphy.gif",          # Sleeping cat
-        "https://media.giphy.com/media/bC9czlgCMtw4cj8RgH/giphy.gif",      # Spongebob sleeping
-        "https://media.giphy.com/media/Ru9sjtZ09XOEg/giphy.gif",          # Peace out disappearing
+        "https://tenor.com/bOP2C.gif",                                    # Homer disappearing in bushes
+        "https://tenor.com/bSrgX.gif",                                    # Sleeping cat
     ],
     "confused": [
-        "https://media.giphy.com/media/lkdH8FmImcGoykgFgz/giphy.gif",      # Confused Nick Young
-        "https://media.giphy.com/media/g01ZnwAUvutuK8GIQn/giphy.gif",      # Confused Travolta
-        "https://media.giphy.com/media/WRQBXSCnEFJIuxktnw/giphy.gif",      # Math calculation confused
-        "https://media.giphy.com/media/kc0kqKNFu7v35gPkwB/giphy.gif",      # Huh?
+        "https://tenor.com/bEomW.gif",                                    # Confused Travolta
+        "https://tenor.com/bB4Gv.gif",                                    # Confused Nick Young
     ],
     "hype": [
-        "https://media.giphy.com/media/artj92V8o75VPL7AeQ/giphy.gif",      # Hyped dance
-        "https://media.giphy.com/media/14vh2VWCibnsuk/giphy.gif",          # Let's go
-        "https://media.giphy.com/media/ibolLe3mOqHE3PQTtk/giphy.gif",      # Popcorn / excited
-        "https://media.giphy.com/media/5GoVLqeAOo6PK/giphy.gif",          # Excited kid
+        "https://tenor.com/bTj2K.gif",                                    # Excited kid
+        "https://tenor.com/bJZ3u.gif",                                    # Minions hype
     ],
     # ── Custom categories ───────────────────────────────────────────
     "scared": [

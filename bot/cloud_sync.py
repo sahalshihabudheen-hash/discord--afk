@@ -65,6 +65,11 @@ class CloudSync:
                     if self.bot and cloud_afk is not None and cloud_afk != self.bot.afk_mode:
                         self.bot.toggle_afk(cloud_afk)
 
+                    # Process blocked conversations / disabled AI replies from cloud
+                    disabled_convo_ids = data.get("disabled_convo_ids", [])
+                    if self.bot and hasattr(self.bot, "store"):
+                        self.bot.store.update_disabled_conversations(disabled_convo_ids)
+
                     # Process pending manual messages sent from Vercel web app
                     pending_msgs = data.get("pending_messages", [])
                     if pending_msgs and self.bot:

@@ -15,7 +15,7 @@ from bot.gif_library import GifLibrary
 from bot.cloud_sync import CloudSync
 
 # Probability of sending a GIF after a normal reply
-GIF_CHANCE = 0.30
+GIF_CHANCE = 0.55
 # Typing delay range (seconds) — makes it feel human
 TYPING_MIN = 1.8
 TYPING_MAX = 4.5
@@ -291,7 +291,38 @@ class AFKBot(discord.Client):
             },
         )
 
+        if self.store.is_ai_disabled(convo_id):
+            print(f"[AFK] 🚫 AI replies are disabled for {convo_name} ({convo_id}). Skipping auto-reply.")
+            return
+
         try:
+            # ── First-message: send hello GIF before anything else ──────────
+            if is_first:
+                hello_gif = "https://tenor.com/t5rAQpd0GBf.gif"
+                try:
+                    await message.channel.send(hello_gif)
+                except Exception as ge:
+                    print(f"[First-msg GIF] {ge}")
+                self.emit(
+                    "new_message",
+                    {
+                        "user_id": convo_id,
+                        "user_name": user_name,
+                        "convo_name": convo_name,
+                        "convo_avatar": convo_avatar,
+                        "content": f"[GIF:hello]{hello_gif}",
+                        "role": "assistant",
+                        "channel_type": channel_type,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                )
+
+            # Collect image URLs from attachments for vision analysis
+            image_urls = [
+                a.url for a in message.attachments
+                if a.content_type and a.content_type.startswith("image/")
+            ]
+
             # Show typing indicator + delay
             delay = random.uniform(TYPING_MIN, TYPING_MAX) + len(message.content) * 0.012
             delay = min(delay, 5.0)
@@ -305,8 +336,8 @@ class AFKBot(discord.Client):
 
             history = self.store.get_history(convo_id)
 
-            # Get reply from Groq
-            reply = await self.groq.get_response(history, user_name=user_name)
+            # Get reply from Groq — pass image URLs for vision if any
+            reply = await self.groq.get_response(history, user_name=user_name, image_urls=image_urls if image_urls else None)
 
             if not reply:
                 reply = f"yo {user_name}! been kinda tied up rn, hit me up later 🙌"

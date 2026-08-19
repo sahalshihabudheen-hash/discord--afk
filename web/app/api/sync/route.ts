@@ -24,10 +24,16 @@ export async function POST(req: Request) {
     const pending = [...getPendingMessages()];
     clearPendingMessages();
 
+    // Extract conversation IDs where AI is disabled
+    const disabledConvoIds = (currentState.conversations || [])
+      .filter((c) => c.ai_disabled)
+      .map((c) => c.user_id);
+
     // Return the cloud's desired AFK mode back to the bot
     return NextResponse.json({
       success: true,
       afk_mode: currentState.afk_mode,
+      disabled_convo_ids: disabledConvoIds,
       timestamp: new Date().toISOString(),
       pending_messages: pending,
     });

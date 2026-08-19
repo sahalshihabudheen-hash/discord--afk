@@ -62,6 +62,7 @@ export interface Conversation {
   avatar?: string | null;
   channel_type?: string;
   messages: Message[];
+  ai_disabled?: boolean;
 }
 
 export interface DashboardState {
@@ -139,9 +140,20 @@ export function getGlobalState(): DashboardState {
 
 export function updateGlobalState(partial: Partial<DashboardState>): DashboardState {
   const current = getGlobalState();
+  
+  // Merge conversations to preserve the ai_disabled status from local store
+  const mergedConversations = (partial.conversations || []).map((convo) => {
+    const existing = current.conversations.find((c) => c.user_id === convo.user_id);
+    return {
+      ...convo,
+      ai_disabled: existing ? existing.ai_disabled : (convo.ai_disabled || false),
+    };
+  });
+
   global.__GLOBAL_BOT_STATE = {
     ...current,
     ...partial,
+    conversations: mergedConversations,
     last_sync: new Date().toISOString(),
     bot_connected: true,
   };
@@ -155,4 +167,16 @@ export function toggleAFK(newMode?: boolean): boolean {
   current.afk_mode = target;
   saveToFile(current);
   return target;
+}
+
+export function toggleAI(userId: string, disabled?: boolean): boolean {
+  const current = getGlobalState();
+  const convo = current.conversations.find((c) => c.user_id === userId);
+  if (convo) {
+    const target = disabled !== undefined ? disabled : !convo.ai_disabled;
+    convo.ai_disabled = target;
+    saveToFile(current);
+    return target;
+  }
+  return false;
 }

@@ -73,6 +73,7 @@ class ConversationStore:
                 "last_updated": datetime.now().isoformat(),
                 "total_messages": 0,
                 "ai_replies": 0,
+                "ai_disabled": False,
             }
 
         convo = self._store[user_id]
@@ -87,6 +88,10 @@ class ConversationStore:
             convo["channel_id"] = channel_id
         if channel_type:
             convo["channel_type"] = channel_type
+
+        # Ensure ai_disabled exists in convo
+        if "ai_disabled" not in convo:
+            convo["ai_disabled"] = False
 
         msg_obj = {
             "id": message_id or f"msg_{datetime.now().timestamp()}",
@@ -204,6 +209,28 @@ class ConversationStore:
             
         return history
 
+    def is_ai_disabled(self, user_id: str) -> bool:
+        if user_id in self._store:
+            return self._store[user_id].get("ai_disabled", False)
+        return False
+
+    def set_ai_disabled(self, user_id: str, disabled: bool):
+        if user_id in self._store:
+            self._store[user_id]["ai_disabled"] = disabled
+            self.save_to_file()
+
+    def update_disabled_conversations(self, disabled_ids: list):
+        """Update the ai_disabled flag for all conversations based on the list from the cloud."""
+        changed = False
+        disabled_set = set(disabled_ids)
+        for uid, convo in self._store.items():
+            should_be_disabled = uid in disabled_set
+            if convo.get("ai_disabled", False) != should_be_disabled:
+                convo["ai_disabled"] = should_be_disabled
+                changed = True
+        if changed:
+            self.save_to_file()
+
     def is_first_message(self, user_id: str) -> bool:
         return user_id not in self._store
 
@@ -252,6 +279,7 @@ class ConversationStore:
                     "ai_replies": data["ai_replies"],
                     "last_message": last_msg,
                     "messages": data["messages"],
+                    "ai_disabled": data.get("ai_disabled", False),
                 }
             )
         result.sort(key=lambda x: x["last_updated"], reverse=True)
