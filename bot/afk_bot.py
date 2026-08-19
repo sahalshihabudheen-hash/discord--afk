@@ -147,9 +147,22 @@ class AFKBot(discord.Client):
         if not self.afk_mode:
             return
 
-        user_id = str(message.author.id)
+        # Resolve conversation ID, name, avatar and type
+        channel_type = "DM" if is_dm else "Group DM"
+        if is_group:
+            convo_id = str(message.channel.id)
+            if message.channel.name:
+                convo_name = message.channel.name
+            else:
+                convo_name = ", ".join(u.display_name for u in message.channel.recipients)
+            convo_avatar = str(message.channel.icon.url) if message.channel.icon else None
+        else:
+            convo_id = str(message.author.id)
+            convo_name = message.author.display_name
+            convo_avatar = str(message.author.display_avatar.url) if message.author.display_avatar else None
+
         user_name = message.author.display_name
-        is_first = self.store.is_first_message(user_id)
+        is_first = self.store.is_first_message(convo_id)
         avatar_url = str(message.author.display_avatar.url) if message.author.display_avatar else None
 
         # Avatar decoration
@@ -215,14 +228,16 @@ class AFKBot(discord.Client):
                 "content": ref.content or "[Media]",
             }
 
-        channel_type = "DM" if is_dm else "Group DM"
+        print(f"[{channel_type}] 📨 {user_name} in {convo_name}: {message.content[:80] if message.content else '[Media/Attachment]'}")
 
-        print(f"[{channel_type}] 📨 {user_name}: {message.content[:80] if message.content else '[Media/Attachment]'}")
-
-        # Update full user profile in store
-        self.store.update_profile(
-            user_id,
-            {
+        # Update full conversation/user profile in store
+        if is_group:
+            profile_to_update = {
+                "handle": convo_name,
+                "avatar": convo_avatar,
+            }
+        else:
+            profile_to_update = {
                 "handle": str(message.author),
                 "avatar": avatar_url,
                 "avatar_decoration": avatar_deco,
@@ -231,39 +246,45 @@ class AFKBot(discord.Client):
                 "banner": banner_url,
                 "status": status_val,
                 "custom_status": custom_status,
-            },
-        )
+            }
+        self.store.update_profile(convo_id, profile_to_update)
 
         # Persist incoming message
         self.store.add_message(
-            user_id=user_id,
+            user_id=convo_id,
             role="user",
             content=message.content,
             user_name=user_name,
+            avatar=avatar_url,
+            convo_name=convo_name,
+            convo_avatar=convo_avatar,
             attachments=attachment_urls,
             stickers=sticker_urls,
             message_id=str(message.id),
             channel_id=str(message.channel.id),
             reply_to=reply_to,
+            channel_type=channel_type,
         )
 
         # Notify dashboard of incoming message
         self.emit(
             "new_message",
             {
-                "user_id": user_id,
+                "user_id": convo_id,
                 "user_name": user_name,
+                "convo_name": convo_name,
+                "convo_avatar": convo_avatar,
                 "content": message.content,
                 "role": "user",
                 "channel_type": channel_type,
                 "timestamp": datetime.now().isoformat(),
                 "avatar": avatar_url,
-                "avatar_decoration": avatar_deco,
-                "profile_effect": profile_effect,
-                "nameplate": nameplate,
-                "banner": banner_url,
-                "status": status_val,
-                "custom_status": custom_status,
+                "avatar_decoration": avatar_deco if not is_group else None,
+                "profile_effect": profile_effect if not is_group else None,
+                "nameplate": nameplate if not is_group else None,
+                "banner": banner_url if not is_group else None,
+                "status": status_val if not is_group else "online",
+                "custom_status": custom_status if not is_group else None,
                 "attachments": attachment_urls,
                 "stickers": sticker_urls,
                 "reply_to": reply_to,
@@ -282,7 +303,7 @@ class AFKBot(discord.Client):
                 print(f"[Typing Notice] {te}")
                 await asyncio.sleep(delay)
 
-            history = self.store.get_history(user_id)
+            history = self.store.get_history(convo_id)
 
             # Get reply from Groq
             reply = await self.groq.get_response(history, user_name=user_name)
@@ -292,25 +313,30 @@ class AFKBot(discord.Client):
 
             # Store and send reply (directly quoting the user's message)
             self.store.add_message(
-                user_id=user_id,
+                user_id=convo_id,
                 role="assistant",
                 content=reply,
                 user_name=user_name,
+                convo_name=convo_name,
+                convo_avatar=convo_avatar,
                 channel_id=str(message.channel.id),
+                channel_type=channel_type,
             )
             try:
                 await message.reply(reply, mention_author=False)
             except Exception:
                 await message.channel.send(reply)
 
-            print(f"[{channel_type}] 🤖 Bot (replied to {user_name}): {reply[:80]}")
+            print(f"[{channel_type}] 🤖 Bot (replied in {convo_name}): {reply[:80]}")
 
             # Notify dashboard of reply
             self.emit(
                 "new_message",
                 {
-                    "user_id": user_id,
+                    "user_id": convo_id,
                     "user_name": user_name,
+                    "convo_name": convo_name,
+                    "convo_avatar": convo_avatar,
                     "content": reply,
                     "role": "assistant",
                     "channel_type": channel_type,
@@ -331,12 +357,14 @@ class AFKBot(discord.Client):
                     except Exception as ge:
                         print(f"[GIF Error] {ge}")
 
-                    print(f"[{channel_type}] 🎬 GIF ({mood}) → {user_name}: {gif_url}")
+                    print(f"[{channel_type}] 🎬 GIF ({mood}) → {convo_name}: {gif_url}")
                     self.emit(
                         "new_message",
                         {
-                            "user_id": user_id,
+                            "user_id": convo_id,
                             "user_name": user_name,
+                            "convo_name": convo_name,
+                            "convo_avatar": convo_avatar,
                             "content": f"[GIF:{mood}]{gif_url}",
                             "role": "assistant",
                             "channel_type": channel_type,
@@ -349,7 +377,7 @@ class AFKBot(discord.Client):
             self.emit("conversations_update", self.store.get_sorted_conversations())
 
         except Exception as e:
-            print(f"[Error] Failed to process message from {user_name}: {e}")
+            print(f"[Error] Failed to process message from {user_name} in {convo_name}: {e}")
             self.emit("error", {"message": str(e), "timestamp": datetime.now().isoformat()})
 
     async def on_reaction_add(self, reaction: discord.Reaction, user: discord.User):
@@ -362,20 +390,20 @@ class AFKBot(discord.Client):
         if not (is_dm or is_group):
             return
 
-        # Determine the conversation owner: the other person in the DM (not us)
-        # The reacted message could be from either us or the user
-        if reaction.message.author.id == self.user.id:
-            # We sent the message — the convo is owned by the reactor
-            user_id = str(user.id)
+        # Determine the conversation owner: the channel ID for Group DM or user ID for DM
+        if is_group:
+            convo_id = str(reaction.message.channel.id)
         else:
-            # They sent the message — convo is owned by message author
-            user_id = str(reaction.message.author.id)
+            if reaction.message.author.id == self.user.id:
+                convo_id = str(user.id)
+            else:
+                convo_id = str(reaction.message.author.id)
 
         message_id = str(reaction.message.id)
         emoji_str = str(reaction.emoji)
 
-        print(f"[Reaction] {user.display_name} reacted {emoji_str} to message {message_id}")
-        self.store.add_reaction(user_id, message_id, emoji_str)
+        print(f"[Reaction] {user.display_name} reacted {emoji_str} to message {message_id} in conversation {convo_id}")
+        self.store.add_reaction(convo_id, message_id, emoji_str)
         self.emit("stats_update", self.store.get_stats())
         self.emit("conversations_update", self.store.get_sorted_conversations())
 

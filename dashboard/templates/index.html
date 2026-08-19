@@ -641,9 +641,9 @@
 
     if (!convos[uid]) {
       convos[uid] = {
-        user_id: uid, user_name: data.user_name,
+        user_id: uid, user_name: data.convo_name || data.user_name,
         messages: [], total_messages: 0, ai_replies: 0,
-        avatar: data.avatar || null, last_updated: data.timestamp,
+        avatar: data.convo_avatar || data.avatar || null, last_updated: data.timestamp,
         last_message: '', channel_type: data.channel_type || 'DM',
       };
     }
@@ -652,7 +652,9 @@
     c.messages.push(data);
     c.last_updated = data.timestamp;
     c.last_message = data.content;
-    if (data.avatar) c.avatar = data.avatar;
+    if (data.convo_avatar) c.avatar = data.convo_avatar;
+    else if (data.avatar && !data.convo_name) c.avatar = data.avatar;
+    if (data.convo_name) c.user_name = data.convo_name;
     if (data.role === 'user') c.total_messages++;
     else c.ai_replies++;
 

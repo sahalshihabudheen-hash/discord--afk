@@ -41,20 +41,25 @@ class ConversationStore:
         role: str,
         content: str,
         user_name: str = None,
+        avatar: str = None,
+        convo_name: str = None,
+        convo_avatar: str = None,
         attachments: List[str] = None,
         stickers: List[str] = None,
         reactions: List[str] = None,
         message_id: str = None,
         channel_id: str = None,
         reply_to: dict = None,
+        channel_type: str = "DM",
     ):
         """Add a message with optional attachments, stickers, reactions, and message ID."""
         if user_id not in self._store:
             self._store[user_id] = {
-                "user_name": user_name or user_id,
+                "user_name": convo_name or user_name or user_id,
                 "channel_id": channel_id,
+                "channel_type": channel_type,
                 "profile": {
-                    "avatar": None,
+                    "avatar": convo_avatar or avatar,
                     "avatar_decoration": None,
                     "profile_effect": None,
                     "nameplate": None,
@@ -62,7 +67,7 @@ class ConversationStore:
                     "status": "offline",
                     "custom_status": None,
                     "bio": None,
-                    "handle": user_name or user_id,
+                    "handle": convo_name or user_name or user_id,
                 },
                 "messages": [],
                 "last_updated": datetime.now().isoformat(),
@@ -71,16 +76,25 @@ class ConversationStore:
             }
 
         convo = self._store[user_id]
-        if user_name:
-            convo["user_name"] = user_name
+        if convo_name:
+            convo["user_name"] = convo_name
+            if "profile" in convo and isinstance(convo["profile"], dict):
+                convo["profile"]["handle"] = convo_name
+        if convo_avatar:
+            if "profile" in convo and isinstance(convo["profile"], dict):
+                convo["profile"]["avatar"] = convo_avatar
         if channel_id:
             convo["channel_id"] = channel_id
+        if channel_type:
+            convo["channel_type"] = channel_type
 
         msg_obj = {
             "id": message_id or f"msg_{datetime.now().timestamp()}",
             "role": role,
             "content": content or "",
             "timestamp": datetime.now().isoformat(),
+            "user_name": user_name,
+            "avatar": avatar,
             "attachments": attachments or [],
             "stickers": stickers or [],
             "reactions": reactions or [],
@@ -170,11 +184,25 @@ class ConversationStore:
         """Return message history in OpenAI format for Groq API."""
         if user_id not in self._store:
             return []
-        return [
-            {"role": m["role"], "content": m["content"]}
-            for m in self._store[user_id]["messages"]
-            if m.get("content") and not m.get("is_deleted")
-        ]
+        
+        convo = self._store[user_id]
+        is_group = convo.get("channel_type") == "Group DM"
+        
+        history = []
+        for m in convo["messages"]:
+            if not m.get("content") or m.get("is_deleted"):
+                continue
+            
+            role = m["role"]
+            content = m["content"]
+            
+            # Prefix user messages with their name in group DMs so Groq has identity context
+            if role == "user" and is_group and m.get("user_name"):
+                content = f"[{m['user_name']}]: {content}"
+                
+            history.append({"role": role, "content": content})
+            
+        return history
 
     def is_first_message(self, user_id: str) -> bool:
         return user_id not in self._store
@@ -216,6 +244,7 @@ class ConversationStore:
                     "user_id": uid,
                     "user_name": data["user_name"],
                     "channel_id": data.get("channel_id"),
+                    "channel_type": data.get("channel_type", "DM"),
                     "profile": profile,
                     "avatar": profile.get("avatar"),
                     "last_updated": data["last_updated"],
