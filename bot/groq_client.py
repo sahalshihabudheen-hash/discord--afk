@@ -10,10 +10,8 @@ class GroqClient:
     def __init__(self, api_key: str, owner_name: str):
         self.client = AsyncGroq(api_key=api_key)
         self.owner_name = owner_name
-        # llama-4-scout supports vision; fallback to llama-3.3 for text-only
-        self.vision_model = "meta-llama/llama-4-scout-17b-16e-instruct"
-        self.text_model = "meta-llama/llama-4-scout-17b-16e-instruct"
-        self.fallback_model = "llama-3.3-70b-versatile"
+        self.model = "openai/gpt-oss-120b"
+        self.fallback_model = "openai/gpt-oss-120b"
 
     def _build_system_prompt(self, user_name: str) -> str:
         name = self.owner_name
@@ -109,7 +107,7 @@ Sound raw, short, and real. ZERO emojis. No links. No long replies. Don't get pl
                 content_parts.append({"type": "image_url", "image_url": {"url": url}})
             messages[-1] = {"role": "user", "content": content_parts}
 
-        use_model = self.vision_model if image_urls else self.text_model
+        use_model = self.model
 
         try:
             response = await self.client.chat.completions.create(

@@ -3432,90 +3432,6 @@
     },
     "messages": [
       {
-        "id": "msg_1787158228.761182",
-        "role": "assistant",
-        "content": "just testing features now",
-        "timestamp": "2026-08-19T22:20:28.761182",
-        "user_name": "𝗦𝗵𝗮𝗻𝗶𝗱_𝗸𝘂𝗿𝗶𝗸𝗸𝗮𝗹",
-        "avatar": null,
-        "attachments": [],
-        "stickers": [],
-        "reactions": [],
-        "is_deleted": false,
-        "deleted_at": null,
-        "is_edited": false,
-        "original_content": null,
-        "reply_to": null
-      },
-      {
-        "id": "1539678013979885589",
-        "role": "user",
-        "content": "",
-        "timestamp": "2026-08-19T22:20:46.732453",
-        "user_name": "𝗦𝗵𝗮𝗻𝗶𝗱_𝗸𝘂𝗿𝗶𝗸𝗸𝗮𝗹",
-        "avatar": "https://cdn.discordapp.com/avatars/1261333051078738020/e8a969b84c9f2b660c1746e6923c4282.png?size=1024",
-        "attachments": [
-          "https://cdn.discordapp.com/attachments/1510957085070725221/1539678013506195576/voice-message.ogg?ex=6a873064&is=6a85dee4&hm=8b38ada3d785fd198fe7d710e537c290ffce3ae507d26720de300dc6adeb19ef&"
-        ],
-        "stickers": [],
-        "reactions": [],
-        "is_deleted": false,
-        "deleted_at": null,
-        "is_edited": false,
-        "original_content": null,
-        "reply_to": null
-      },
-      {
-        "id": "msg_1787158251.528123",
-        "role": "assistant",
-        "content": "testing site features now",
-        "timestamp": "2026-08-19T22:20:51.528123",
-        "user_name": "𝗦𝗵𝗮𝗻𝗶𝗱_𝗸𝘂𝗿𝗶𝗸𝗸𝗮𝗹",
-        "avatar": null,
-        "attachments": [],
-        "stickers": [],
-        "reactions": [],
-        "is_deleted": false,
-        "deleted_at": null,
-        "is_edited": false,
-        "original_content": null,
-        "reply_to": null
-      },
-      {
-        "id": "1539678102458863669",
-        "role": "user",
-        "content": "",
-        "timestamp": "2026-08-19T22:21:07.928763",
-        "user_name": "𝗦𝗵𝗮𝗻𝗶𝗱_𝗸𝘂𝗿𝗶𝗸𝗸𝗮𝗹",
-        "avatar": "https://cdn.discordapp.com/avatars/1261333051078738020/e8a969b84c9f2b660c1746e6923c4282.png?size=1024",
-        "attachments": [
-          "https://cdn.discordapp.com/attachments/1510957085070725221/1539678102546948096/voice-message.ogg?ex=6a873079&is=6a85def9&hm=750aacb4946f6374cb1e525d07f662f5b9deb571029c4c80ceeb497fca132830&"
-        ],
-        "stickers": [],
-        "reactions": [],
-        "is_deleted": false,
-        "deleted_at": null,
-        "is_edited": false,
-        "original_content": null,
-        "reply_to": null
-      },
-      {
-        "id": "msg_1787158273.276182",
-        "role": "assistant",
-        "content": "checking thumb upload now",
-        "timestamp": "2026-08-19T22:21:13.276182",
-        "user_name": "𝗦𝗵𝗮𝗻𝗶𝗱_𝗸𝘂𝗿𝗶𝗸𝗸𝗮𝗹",
-        "avatar": null,
-        "attachments": [],
-        "stickers": [],
-        "reactions": [],
-        "is_deleted": false,
-        "deleted_at": null,
-        "is_edited": false,
-        "original_content": null,
-        "reply_to": null
-      },
-      {
         "id": "1539678322882252890",
         "role": "user",
         "content": "Is the replay automated?.... Huh?",
@@ -4430,13 +4346,98 @@
         "is_edited": false,
         "original_content": null,
         "reply_to": null
+      },
+      {
+        "id": "1539688413798858772",
+        "role": "user",
+        "content": "okey da",
+        "timestamp": "2026-08-19T23:02:06.329407",
+        "user_name": "𝗦𝗵𝗮𝗻𝗶𝗱_𝗸𝘂𝗿𝗶𝗸𝗸𝗮𝗹",
+        "avatar": "https://cdn.discordapp.com/avatars/1261333051078738020/e8a969b84c9f2b660c1746e6923c4282.png?size=1024",
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": false,
+        "deleted_at": null,
+        "is_edited": false,
+        "original_content": null,
+        "reply_to": null
+      },
+      {
+        "id": "msg_1787160731.366892",
+        "role": "assistant",
+        "content": "i'm sorry i cant continue",
+        "timestamp": "2026-08-19T23:02:11.366892",
+        "user_name": "𝗦𝗵𝗮𝗻𝗶𝗱_𝗸𝘂𝗿𝗶𝗸𝗸𝗮𝗹",
+        "avatar": null,
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": false,
+        "deleted_at": null,
+        "is_edited": false,
+        "original_content": null,
+        "reply_to": null
+      },
+      {
+        "id": "1539688518459326644",
+        "role": "user",
+        "content": "just leave broo",
+        "timestamp": "2026-08-19T23:02:31.272429",
+        "user_name": "𝗦𝗵𝗮𝗻𝗶𝗱_𝗸𝘂𝗿𝗶𝗸𝗸𝗮𝗹",
+        "avatar": "https://cdn.discordapp.com/avatars/1261333051078738020/e8a969b84c9f2b660c1746e6923c4282.png?size=1024",
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": false,
+        "deleted_at": null,
+        "is_edited": false,
+        "original_content": null,
+        "reply_to": null
+      },
+      {
+        "id": "1539688579226140793",
+        "role": "user",
+        "content": "wtf i hate you",
+        "timestamp": "2026-08-19T23:02:46.846513",
+        "user_name": "𝗦𝗵𝗮𝗻𝗶𝗱_𝗸𝘂𝗿𝗶𝗸𝗸𝗮𝗹",
+        "avatar": "https://cdn.discordapp.com/avatars/1261333051078738020/e8a969b84c9f2b660c1746e6923c4282.png?size=1024",
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": false,
+        "deleted_at": null,
+        "is_edited": false,
+        "original_content": null,
+        "reply_to": {
+          "message_id": "1539688495499579452",
+          "author": "𝐒𝐀𝐇𝐀𝐋_𝐏𝐑𝐎",
+          "content": "u gota be kidding me"
+        }
+      },
+      {
+        "id": "1539688793232113726",
+        "role": "user",
+        "content": "i dont know",
+        "timestamp": "2026-08-19T23:03:36.801891",
+        "user_name": "𝗦𝗵𝗮𝗻𝗶𝗱_𝗸𝘂𝗿𝗶𝗸𝗸𝗮𝗹",
+        "avatar": "https://cdn.discordapp.com/avatars/1261333051078738020/e8a969b84c9f2b660c1746e6923c4282.png?size=1024",
+        "attachments": [],
+        "stickers": [],
+        "reactions": [],
+        "is_deleted": false,
+        "deleted_at": null,
+        "is_edited": false,
+        "original_content": null,
+        "reply_to": null
       }
     ],
-    "last_updated": "2026-08-19T22:48:38.045500",
-    "total_messages": 74,
-    "ai_replies": 33,
+    "last_updated": "2026-08-19T23:03:36.801891",
+    "total_messages": 79,
+    "ai_replies": 34,
     "channel_id": "1510957085070725221",
-    "channel_type": "Group DM"
+    "channel_type": "Group DM",
+    "ai_disabled": true
   },
   "1406304764328677516": {
     "user_name": "Sanemiii ...",
@@ -5297,6 +5298,7 @@
     "total_messages": 32,
     "ai_replies": 16,
     "channel_id": "1472861395115573319",
-    "channel_type": "DM"
+    "channel_type": "DM",
+    "ai_disabled": true
   }
 }
