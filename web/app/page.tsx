@@ -576,7 +576,7 @@ export default function Dashboard() {
                           paddingRight: isAssistant ? "8px" : "0",
                         }}
                       >
-                        {isAssistant ? "🤖 Sahal's Bot" : selectedConvo.user_name} · {formatTime(msg.timestamp)}
+                        {isAssistant ? "🤖 Sahal's Bot" : (msg.user_name || selectedConvo.user_name)} · {formatTime(msg.timestamp)}
                         {isEdited && <span style={{ fontSize: "10px", opacity: 0.5, marginLeft: "5px" }}>(edited)</span>}
                       </div>
 
