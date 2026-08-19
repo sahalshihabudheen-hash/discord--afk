@@ -14,8 +14,8 @@ class GroqClient:
     def __init__(self, api_key: str, owner_name: str):
         self.client = AsyncGroq(api_key=api_key)
         self.owner_name = owner_name
-        self.model = "llama-3.3-70b-versatile"
-        self.fallback_model = "llama-3.1-8b-instant"
+        self.model = "llama3-70b-8192"
+        self.fallback_model = "llama3-8b-8192"
 
     def _build_system_prompt(self, user_name: str) -> str:
         name = self.owner_name
