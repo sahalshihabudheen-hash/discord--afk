@@ -49,6 +49,49 @@ GIF_COLLECTION = {
         "https://media.giphy.com/media/14vh2VWCibnsuk/giphy.gif",          # Let's go
         "https://media.giphy.com/media/ibolLe3mOqHE3PQTtk/giphy.gif",      # Popcorn / excited
         "https://media.giphy.com/media/5GoVLqeAOo6PK/giphy.gif",          # Excited kid
+    ],
+    # ── Custom categories ───────────────────────────────────────────
+    "scared": [
+        "https://tenor.com/vrqJxI8LVIM.gif"
+    ],
+    "coding_business": [
+        "https://tenor.com/lkqW1c3OM5v.gif"
+    ],
+    "warmed_up": [
+        "https://tenor.com/j7aSh5FZXYo.gif"
+    ],
+    "easy": [
+        "https://tenor.com/eCIdM1NVDQm.gif"
+    ],
+    "gotchu": [
+        "https://tenor.com/feVgTfXHHrf.gif"
+    ],
+    "did_better": [
+        "https://tenor.com/rMVomo6bK5C.gif"
+    ],
+    "gn": [
+        "https://tenor.com/muCHwIJMtqt.gif"
+    ],
+    "gotcha_boss": [
+        "https://tenor.com/emZ2jI9cjVI.gif"
+    ],
+    "not_dead_yet": [
+        "https://tenor.com/pSLS9gfLINm.gif"
+    ],
+    "aura": [
+        "https://tenor.com/m1aY4yLw7UN.gif"
+    ],
+    "back": [
+        "https://tenor.com/xraXxkEd2m.gif"
+    ],
+    "yes": [
+        "https://tenor.com/gQs3MVXlSU1.gif"
+    ],
+    "thank_you": [
+        "https://tenor.com/sExu04iLQUn.gif"
+    ],
+    "hello": [
+        "https://tenor.com/t5rAQpd0GBf.gif"
     ]
 }
 
@@ -74,16 +117,63 @@ class GifLibrary:
     def detect_mood_from_text(self, text: str) -> str:
         """Quick keyword mood detection."""
         t = text.lower()
-        if any(w in t for w in ["roast", "clown", "lmao", "trash", "dumb", "ugly", "bot", "loser", "ratio"]):
+        # Clean punctuation to get clean words
+        words = set(re.sub(r'[^\w\s]', ' ', t).split())
+        
+        def has_any(keywords):
+            for kw in keywords:
+                if not kw.isalnum():
+                    # If it contains punctuation or spaces, search as substring
+                    if kw in t:
+                        return True
+                else:
+                    # If it is a clean single word, match whole word only
+                    if kw in words:
+                        return True
+            return False
+
+        # 1. Custom / specific user-requested situations first
+        if has_any(["scared", "afraid", "terrified", "fear", "creepy", "spooked", "horror", "panic"]):
+            return "scared"
+        if has_any(["warmed up", "warming up", "warm up", "getting warmed"]):
+            return "warmed_up"
+        if has_any(["gotcha boss", "yes boss", "yes sir", "roger that", "copy that"]):
+            return "gotcha_boss"
+        if has_any(["gotchu", "got you", "gotch u", "got your back"]):
+            return "gotchu"
+        if has_any(["already did better", "alrdy did better", "did better", "do better"]):
+            return "did_better"
+        if has_any(["not dead yet", "am not dead", "still alive", "survived", "still here"]):
+            return "not_dead_yet"
+        if has_any(["am back", "im back", "i'm back", "returned"]):
+            return "back"
+        if has_any(["coding", "code", "programming", "programmer", "business", "work", "job", "grind"]):
+            return "coding_business"
+        if has_any(["easy", "ez", "simple", "piece of cake"]):
+            return "easy"
+        if has_any(["gn", "goodnight", "good night", "bedtime"]):
+            return "gn"
+        if has_any(["aura", "drip", "rizz", "cold", "flex"]):
+            return "aura"
+        if has_any(["thank you", "thanks", "ty", "appreciate", "thx"]):
+            return "thank_you"
+        if has_any(["yes", "yeah", "yup", "indeed", "absolutely", "ok", "okay"]):
+            return "yes"
+        if has_any(["hello", "hi", "hey", "yo", "sup", "wassup"]):
+            return "hello"
+
+        # 2. Existing / fallback categories
+        if has_any(["roast", "clown", "lmao", "trash", "dumb", "ugly", "bot", "loser", "ratio"]):
             return "roast"
-        if any(w in t for w in ["haha", "lol", "xd", "funny", "😂", "🤣"]):
+        if has_any(["haha", "lol", "xd", "funny", "😂", "🤣"]):
             return "laugh"
-        if any(w in t for w in ["hi", "hello", "hey", "sup", "yo", "wassup"]):
+        if has_any(["hi", "hello", "hey", "sup", "yo", "wassup"]):
             return "wave"
-        if any(w in t for w in ["afk", "sleep", "bye", "gtg", "cya", "away"]):
+        if has_any(["afk", "sleep", "bye", "gtg", "cya", "away"]):
             return "afk"
-        if any(w in t for w in ["what", "why", "who", "huh", "?", "confused"]):
+        if has_any(["what", "why", "who", "huh", "?", "confused"]):
             return "confused"
-        if any(w in t for w in ["w", "fire", "hype", "omg", "lets go", "goat", "legend"]):
+        if has_any(["w", "fire", "hype", "omg", "lets go", "goat", "legend"]):
             return "hype"
+        
         return "chill"
