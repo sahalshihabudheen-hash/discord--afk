@@ -777,7 +777,9 @@
   function renderMsg(data) {
     const role = data.role;
     const time = fmtTime(data.timestamp);
-    const label = role === 'assistant' ? '🤖 Bot' : esc(data.user_name || 'User');
+    // For group DMs: each message has its own user_name (the actual sender)
+    const senderName = data.user_name || 'User';
+    const label = role === 'assistant' ? '🤖 Bot' : esc(senderName);
     const isBotGif = data.content && data.content.startsWith('[GIF:');
     const isDeleted = data.is_deleted;
     const isEdited = data.is_edited;
@@ -828,9 +830,11 @@
       bubbleHtml = `<div class="bubble">${esc(data.content)}${editBadge}</div>`;
     }
 
+    // Use per-message avatar (sender's avatar) for group DMs, fall back to initials
+    const msgAvatar = data.avatar;
     const avContent = role === 'assistant'
       ? '🤖'
-      : (data.avatar ? `<img src="${data.avatar}" alt="" />` : initial(data.user_name));
+      : (msgAvatar ? `<img src="${msgAvatar}" alt="" />` : initial(senderName));
 
     return `
       <div class="msg-row ${role}" style="${isDeleted ? 'opacity:0.7;' : ''}">
