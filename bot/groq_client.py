@@ -5,6 +5,7 @@ Supports 3 chat modes: human, ai, extreme_ai.
 
 import re
 import random
+from typing import Optional
 from groq import AsyncGroq
 
 
