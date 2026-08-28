@@ -50,6 +50,47 @@ class AFKBot(discord.Client):
         print(f"[AFK] Mode toggled → {status}")
         self.emit("afk_toggle", {"afk_mode": mode, "timestamp": datetime.now().isoformat()})
 
+    async def _send_content_chunks(self, channel, content: str, reply_to=None):
+        """Send message to Discord, splitting cleanly into chunks <= 1900 chars to avoid Discord 2000 char limit."""
+        if not content:
+            return
+
+        if len(content) <= 1900:
+            if reply_to:
+                try:
+                    await reply_to.reply(content, mention_author=False)
+                    return
+                except Exception:
+                    pass
+            await channel.send(content)
+            return
+
+        # Split into chunks around newlines/spaces
+        chunks = []
+        rem = content
+        while len(rem) > 1900:
+            split_at = rem[:1900].rfind("\n")
+            if split_at == -1 or split_at < 800:
+                split_at = rem[:1900].rfind(" ")
+            if split_at == -1:
+                split_at = 1900
+            chunks.append(rem[:split_at].strip())
+            rem = rem[split_at:].strip()
+        if rem:
+            chunks.append(rem)
+
+        for i, chunk in enumerate(chunks):
+            if not chunk:
+                continue
+            if i == 0 and reply_to:
+                try:
+                    await reply_to.reply(chunk, mention_author=False)
+                except Exception:
+                    await channel.send(chunk)
+            else:
+                await channel.send(chunk)
+            await asyncio.sleep(0.6)
+
     async def send_manual_message(self, user_id: str, content: str) -> bool:
         """Manually send a message to a user or group DM channel from the dashboard."""
         try:
@@ -79,8 +120,8 @@ class AFKBot(discord.Client):
                 print(f"[Manual Send] Error: Conversation channel or user not found for {user_id}")
                 return False
 
-            await channel.send(content)
-            print(f"[Manual Send] Sent message to {user_id} in channel {channel}: {content}")
+            await self._send_content_chunks(channel, content)
+            print(f"[Manual Send] Sent message to {user_id} in channel {channel}: {content[:80]}")
 
             self.store.add_message(
                 user_id=user_id,
@@ -402,10 +443,8 @@ class AFKBot(discord.Client):
                 channel_id=str(message.channel.id),
                 channel_type=channel_type,
             )
-            try:
-                await message.reply(reply, mention_author=False)
-            except Exception:
-                await message.channel.send(reply)
+            # Send reply safely, splitting into parts if exceeding Discord's 2000 character limit
+            await self._send_content_chunks(message.channel, reply, reply_to=message)
 
             print(f"[{channel_type}] 🤖 Bot [{chat_mode}] (replied in {convo_name}): {reply[:80]}")
 
