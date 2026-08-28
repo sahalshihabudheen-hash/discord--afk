@@ -268,3 +268,30 @@ Sound raw, short, and real. ZERO emojis. No links. Don't get played."""
             cleaned = random.choice(fallbacks)
 
         return cleaned
+
+    async def extract_image_prompt_ai(self, text: str) -> Optional[str]:
+        """Use LLM to detect if user wants to generate/draw an image and return the pure visual prompt."""
+        try:
+            resp = await self.client.chat.completions.create(
+                model=self.fallback_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You analyze chat messages. If the user is requesting or asking to generate, create, draw, paint, render, or make an image/picture/artwork/drawing, "
+                            "reply ONLY with the refined visual prompt to pass to an image generator (no preamble, no quotes, no markdown, just the visual description). "
+                            "If the user is NOT asking to generate an image (e.g. they are just chatting, asking a question, or referencing an existing image), reply with exactly 'NO'."
+                        ),
+                    },
+                    {"role": "user", "content": text},
+                ],
+                max_tokens=100,
+                temperature=0.2,
+            )
+            raw = (resp.choices[0].message.content or "").strip()
+            cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+            if cleaned and not cleaned.upper().startswith("NO") and len(cleaned) > 2:
+                return cleaned
+        except Exception as e:
+            print(f"[Groq] Image intent detection error: {e}")
+        return None

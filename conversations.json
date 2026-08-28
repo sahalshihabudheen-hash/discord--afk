@@ -416,7 +416,8 @@
     "ai_replies": 14,
     "channel_id": "1392523975124451420",
     "channel_type": "DM",
-    "ai_disabled": false
+    "ai_disabled": false,
+    "chat_mode": "human"
   },
   "1294310004429553665": {
     "user_name": "HaRsH",
@@ -509,7 +510,8 @@
     "last_updated": "2026-08-18T22:23:28.815033",
     "total_messages": 6,
     "ai_replies": 3,
-    "channel_id": "1412819106461388820"
+    "channel_id": "1412819106461388820",
+    "chat_mode": "human"
   },
   "1506673323449520218": {
     "user_name": "Iris",
@@ -679,7 +681,8 @@
     "last_updated": "2026-08-18T22:27:41.808310",
     "total_messages": 12,
     "ai_replies": 6,
-    "channel_id": "1537506707524026529"
+    "channel_id": "1537506707524026529",
+    "chat_mode": "human"
   },
   "933248498269315143": {
     "user_name": "Appu",
@@ -1219,7 +1222,8 @@
     "last_updated": "2026-08-18T23:15:36.702530",
     "total_messages": 35,
     "ai_replies": 17,
-    "channel_id": "1485638178856501268"
+    "channel_id": "1485638178856501268",
+    "chat_mode": "human"
   },
   "1384781206385852447": {
     "user_name": "!               ItzKyroxxY",
@@ -1317,7 +1321,8 @@
     "last_updated": "2026-08-19T19:19:11.151668",
     "total_messages": 6,
     "ai_replies": 3,
-    "channel_id": "1428379554782642246"
+    "channel_id": "1428379554782642246",
+    "chat_mode": "human"
   },
   "1262416815099740181": {
     "user_name": "FinX",
@@ -1610,7 +1615,8 @@
     "ai_replies": 7,
     "channel_id": "1374215703204335718",
     "ai_disabled": true,
-    "channel_type": "DM"
+    "channel_type": "DM",
+    "chat_mode": "human"
   },
   "1349304843352805466": {
     "user_name": "♡𝓤𝓷𝓴𝓷𝓸𝔀𝓷𝓛𝓮𝔁.𝓔𝔁𝓮♡",
@@ -2391,7 +2397,8 @@
     "last_updated": "2026-08-19T19:46:04.527087",
     "total_messages": 53,
     "ai_replies": 27,
-    "channel_id": "1409891274319724602"
+    "channel_id": "1409891274319724602",
+    "chat_mode": "human"
   },
   "1343549938939985942": {
     "user_name": "𒆜..𝙂𝙄𝙁_PRO..𒆜",
@@ -3057,7 +3064,8 @@
     "last_updated": "2026-08-19T19:41:44.067572",
     "total_messages": 44,
     "ai_replies": 22,
-    "channel_id": "1412819106461388820"
+    "channel_id": "1412819106461388820",
+    "chat_mode": "human"
   },
   "1208304615699910657": {
     "user_name": "PratikPlayz",
@@ -4080,7 +4088,8 @@
     "ai_replies": 19,
     "channel_id": "1404466074807832769",
     "channel_type": "DM",
-    "ai_disabled": false
+    "ai_disabled": false,
+    "chat_mode": "human"
   },
   "1412819106461388820": {
     "user_name": "Admins Group",
@@ -5085,7 +5094,8 @@
     "ai_replies": 45,
     "channel_id": "1412819106461388820",
     "channel_type": "Group DM",
-    "ai_disabled": false
+    "ai_disabled": false,
+    "chat_mode": "extreme_ai"
   },
   "1510957085070725221": {
     "user_name": "HEXA CLUB",
@@ -6104,7 +6114,8 @@
     "ai_replies": 50,
     "channel_id": "1510957085070725221",
     "channel_type": "Group DM",
-    "ai_disabled": true
+    "ai_disabled": true,
+    "chat_mode": "human"
   },
   "1406304764328677516": {
     "user_name": "Sanemiii ...",
@@ -6248,7 +6259,8 @@
     "total_messages": 8,
     "ai_replies": 4,
     "channel_id": "1464611693379190950",
-    "channel_type": "DM"
+    "channel_type": "DM",
+    "chat_mode": "human"
   },
   "1069112951119822938": {
     "user_name": "ALAN",
@@ -7228,7 +7240,8 @@
     "ai_replies": 50,
     "channel_id": "1369705591400038603",
     "channel_type": "DM",
-    "ai_disabled": false
+    "ai_disabled": false,
+    "chat_mode": "human"
   },
   "1341611514507034684": {
     "user_name": "𝚆ɪɴɢꜱ †",
@@ -7771,7 +7784,8 @@
     "ai_replies": 16,
     "channel_id": "1472861395115573319",
     "channel_type": "DM",
-    "ai_disabled": true
+    "ai_disabled": true,
+    "chat_mode": "human"
   },
   "1324024043573084303": {
     "user_name": "PALASH",
@@ -8440,7 +8454,8 @@
     "ai_replies": 20,
     "channel_id": "1521554667845451847",
     "channel_type": "DM",
-    "ai_disabled": false
+    "ai_disabled": false,
+    "chat_mode": "human"
   },
   "1325273459550322689": {
     "user_name": "ᎷᏗᏂᎴᎥ",
@@ -9009,7 +9024,8 @@
     "ai_replies": 17,
     "channel_id": "1369701519204552804",
     "channel_type": "DM",
-    "ai_disabled": false
+    "ai_disabled": false,
+    "chat_mode": "human"
   },
   "1361589018873168034": {
     "user_name": "Shebin",
@@ -9093,6 +9109,7 @@
     "ai_replies": 2,
     "channel_id": "1413798908366422058",
     "channel_type": "DM",
-    "ai_disabled": false
+    "ai_disabled": false,
+    "chat_mode": "human"
   }
 }

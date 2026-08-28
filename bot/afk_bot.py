@@ -10,6 +10,7 @@ from datetime import datetime
 from bot.groq_client import GroqClient
 from bot.conversation_store import ConversationStore
 from bot.cloud_sync import CloudSync
+from bot.image_generator import ImageGenerator
 
 # Typing delay range (seconds) — makes it feel human
 TYPING_MIN = 1.8
@@ -22,6 +23,7 @@ class AFKBot(discord.Client):
         self.config = config
         self.owner_name = config.get("your_name", "Sahal")
         self.groq = GroqClient(config["groq_api_key"], self.owner_name)
+        self.image_gen = ImageGenerator()
         self.store = ConversationStore()
         self.afk_mode: bool = config.get("afk_mode", True)
         self.event_callback = event_callback
@@ -309,6 +311,69 @@ class AFKBot(discord.Client):
 
             history = self.store.get_history(convo_id)
             chat_mode = self.store.get_chat_mode(convo_id)
+
+            # ── Check if user is requesting image generation ──────────────
+            image_prompt = self.image_gen.extract_image_prompt(message.content or "")
+            if not image_prompt and message.content and any(w in message.content.lower() for w in ["image", "draw", "picture", "photo", "pic", "paint", "render", "artwork"]):
+                image_prompt = await self.groq.extract_image_prompt_ai(message.content)
+
+            if image_prompt:
+                print(f"[{channel_type}] 🎨 Generating image for prompt: '{image_prompt}' in mode [{chat_mode}]")
+                try:
+                    img_buffer, direct_url = await self.image_gen.generate_image(image_prompt)
+                except Exception as ige:
+                    print(f"[ImageGen Error] {ige}")
+                    img_buffer, direct_url = None, ""
+
+                if img_buffer:
+                    if chat_mode == "extreme_ai":
+                        caption = f"🚀 Generated your custom AI artwork! 🎨✨\n**Prompt:** *{image_prompt}*\nRendered with FLUX AI! 🔥"
+                    elif chat_mode == "ai":
+                        caption = f"Here's the image you requested! 🎨✨ ({image_prompt})"
+                    else:
+                        caption = random.choice(["here bro", "made this for u", "there u go", "done bro"])
+
+                    d_file = discord.File(fp=img_buffer, filename="generated_artwork.png")
+                    sent_msg = None
+                    try:
+                        sent_msg = await message.reply(caption, file=d_file, mention_author=False)
+                    except Exception:
+                        sent_msg = await message.channel.send(caption, file=d_file)
+
+                    attached_urls = []
+                    if sent_msg and getattr(sent_msg, "attachments", None):
+                        attached_urls = [a.url for a in sent_msg.attachments if a.url]
+                    if not attached_urls and direct_url:
+                        attached_urls = [direct_url]
+
+                    self.store.add_message(
+                        user_id=convo_id,
+                        role="assistant",
+                        content=caption,
+                        user_name=user_name,
+                        convo_name=convo_name,
+                        convo_avatar=convo_avatar,
+                        attachments=attached_urls,
+                        channel_id=str(message.channel.id),
+                        channel_type=channel_type,
+                    )
+                    self.emit(
+                        "new_message",
+                        {
+                            "user_id": convo_id,
+                            "user_name": user_name,
+                            "convo_name": convo_name,
+                            "convo_avatar": convo_avatar,
+                            "content": caption,
+                            "role": "assistant",
+                            "attachments": attached_urls,
+                            "channel_type": channel_type,
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                    )
+                    self.emit("stats_update", self.store.get_stats())
+                    self.emit("conversations_update", self.store.get_sorted_conversations())
+                    return
 
             # Get reply from Groq based on conversation chat_mode
             reply = await self.groq.get_response(
