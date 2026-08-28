@@ -12,9 +12,9 @@ from bot.conversation_store import ConversationStore
 from bot.cloud_sync import CloudSync
 from bot.image_generator import ImageGenerator
 
-# Typing delay range (seconds) — makes it feel human
-TYPING_MIN = 1.8
-TYPING_MAX = 4.5
+# Typing delay range (seconds) — lightning fast replies
+TYPING_MIN = 0.2
+TYPING_MAX = 0.5
 
 
 class AFKBot(discord.Client):
@@ -339,9 +339,8 @@ class AFKBot(discord.Client):
                 if a.content_type and a.content_type.startswith("image/")
             ]
 
-            # Show typing indicator + delay
-            delay = random.uniform(TYPING_MIN, TYPING_MAX) + len(message.content) * 0.012
-            delay = min(delay, 5.0)
+            # Show typing indicator + delay (lightning fast)
+            delay = random.uniform(TYPING_MIN, TYPING_MAX)
 
             try:
                 async with message.channel.typing():
