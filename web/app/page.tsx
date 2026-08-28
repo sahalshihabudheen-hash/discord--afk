@@ -69,6 +69,9 @@ export default function Dashboard() {
   const [isTogglingAI, setIsTogglingAI] = useState(false);
   const [isSettingMode, setIsSettingMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const prevConvoIdRef = useRef<string | null>(null);
+  const prevMsgCountRef = useRef<number>(0);
 
   const handleSetMode = async (mode: "human" | "ai" | "extreme_ai") => {
     if (isSettingMode || !selectedUserId || !state) return;
@@ -139,6 +142,7 @@ export default function Dashboard() {
       });
       if (res.ok) {
         setInputText("");
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
         fetchState();
       } else {
         const errData = await res.json().catch(() => ({}));
@@ -177,9 +181,38 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-scroll chat to bottom when messages update
+  // Smart scrolling:
+  // 1. When switching conversation, scroll to bottom once
+  // 2. When new messages arrive, ONLY auto-scroll if user is already near bottom (< 150px)
+  // 3. Never auto-scroll when user has scrolled up to read history
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!selectedUserId || !state) return;
+    const convo = state.conversations.find((c) => c.user_id === selectedUserId);
+    const msgCount = convo?.messages.length || 0;
+
+    const isConvoSwitched = prevConvoIdRef.current !== selectedUserId;
+    prevConvoIdRef.current = selectedUserId;
+
+    if (isConvoSwitched) {
+      prevMsgCountRef.current = msgCount;
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+      });
+      return;
+    }
+
+    const hasNewMessages = msgCount > prevMsgCountRef.current;
+    prevMsgCountRef.current = msgCount;
+
+    if (hasNewMessages) {
+      const container = chatContainerRef.current;
+      if (container) {
+        const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+        if (distanceToBottom < 150) {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }
+      }
+    }
   }, [selectedUserId, state?.conversations]);
 
   const handleToggleAFK = async () => {
@@ -681,7 +714,7 @@ export default function Dashboard() {
               </div>
 
               {/* Message History */}
-              <div style={{ flex: 1, overflowY: "auto", padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div ref={chatContainerRef} style={{ flex: 1, overflowY: "auto", padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
                 {selectedConvo.messages.map((msg, index) => {
                   const isAssistant = msg.role === "assistant";
                   const isBotGif = msg.content?.startsWith("[GIF:");
