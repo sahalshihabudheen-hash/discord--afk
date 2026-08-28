@@ -74,6 +74,7 @@ class ConversationStore:
                 "total_messages": 0,
                 "ai_replies": 0,
                 "ai_disabled": False,
+                "chat_mode": "human",
             }
 
         convo = self._store[user_id]
@@ -92,6 +93,10 @@ class ConversationStore:
         # Ensure ai_disabled exists in convo
         if "ai_disabled" not in convo:
             convo["ai_disabled"] = False
+
+        # Ensure chat_mode exists in convo
+        if "chat_mode" not in convo:
+            convo["chat_mode"] = "human"
 
         msg_obj = {
             "id": message_id or f"msg_{datetime.now().timestamp()}",
@@ -219,6 +224,21 @@ class ConversationStore:
             self._store[user_id]["ai_disabled"] = disabled
             self.save_to_file()
 
+    def get_chat_mode(self, user_id: str) -> str:
+        """Return chat mode: 'human', 'ai', or 'extreme_ai'. Defaults to 'human'."""
+        if user_id in self._store:
+            return self._store[user_id].get("chat_mode", "human")
+        return "human"
+
+    def set_chat_mode(self, user_id: str, mode: str):
+        """Set chat mode for a conversation. Valid: 'human', 'ai', 'extreme_ai'."""
+        valid_modes = {"human", "ai", "extreme_ai"}
+        if mode not in valid_modes:
+            mode = "human"
+        if user_id in self._store:
+            self._store[user_id]["chat_mode"] = mode
+            self.save_to_file()
+
     def update_disabled_conversations(self, disabled_ids: list):
         """Update the ai_disabled flag for all conversations based on the list from the cloud."""
         changed = False
@@ -227,6 +247,16 @@ class ConversationStore:
             should_be_disabled = uid in disabled_set
             if convo.get("ai_disabled", False) != should_be_disabled:
                 convo["ai_disabled"] = should_be_disabled
+                changed = True
+        if changed:
+            self.save_to_file()
+
+    def update_chat_modes(self, chat_modes: dict):
+        """Update chat_mode for conversations based on the dictionary from the cloud."""
+        changed = False
+        for uid, mode in chat_modes.items():
+            if uid in self._store and self._store[uid].get("chat_mode") != mode:
+                self._store[uid]["chat_mode"] = mode
                 changed = True
         if changed:
             self.save_to_file()
@@ -280,6 +310,7 @@ class ConversationStore:
                     "last_message": last_msg,
                     "messages": data["messages"],
                     "ai_disabled": data.get("ai_disabled", False),
+                    "chat_mode": data.get("chat_mode", "human"),
                 }
             )
         result.sort(key=lambda x: x["last_updated"], reverse=True)

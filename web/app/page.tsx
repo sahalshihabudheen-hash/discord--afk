@@ -42,6 +42,7 @@ interface Conversation {
   channel_type?: string;
   messages: Message[];
   ai_disabled?: boolean;
+  chat_mode?: "human" | "ai" | "extreme_ai";
 }
 
 interface DashboardState {
@@ -66,7 +67,36 @@ export default function Dashboard() {
   const [inputText, setInputText] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isTogglingAI, setIsTogglingAI] = useState(false);
+  const [isSettingMode, setIsSettingMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleSetMode = async (mode: "human" | "ai" | "extreme_ai") => {
+    if (isSettingMode || !selectedUserId || !state) return;
+    setIsSettingMode(true);
+    try {
+      const res = await fetch("/api/set-mode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: selectedUserId, mode }),
+      });
+      if (res.ok) {
+        const resData = await res.json();
+        setState((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            conversations: prev.conversations.map((c) =>
+              c.user_id === selectedUserId ? { ...c, chat_mode: resData.chat_mode } : c
+            ),
+          };
+        });
+      }
+    } catch (e) {
+      console.error("Set mode error:", e);
+    } finally {
+      setIsSettingMode(false);
+    }
+  };
 
   const handleToggleAI = async () => {
     if (isTogglingAI || !selectedUserId || !state) return;
@@ -441,10 +471,19 @@ export default function Dashboard() {
                     {/* Details */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2px" }}>
-                        <span style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {convo.user_name} {convo.ai_disabled && <span style={{ fontSize: "10.5px", color: "var(--accent-rose)", fontWeight: "700", marginLeft: "4px", backgroundColor: "rgba(239, 68, 68, 0.15)", padding: "1px 5px", borderRadius: "4px" }}>AI OFF</span>}
+                        <span style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{convo.user_name}</span>
+                          {convo.ai_disabled ? (
+                            <span style={{ fontSize: "10px", color: "var(--accent-rose)", fontWeight: "700", backgroundColor: "rgba(239, 68, 68, 0.15)", padding: "1px 5px", borderRadius: "4px", flexShrink: 0 }}>PAUSED</span>
+                          ) : convo.chat_mode === "extreme_ai" ? (
+                            <span style={{ fontSize: "10px", color: "#f59e0b", fontWeight: "700", backgroundColor: "rgba(245, 158, 11, 0.15)", padding: "1px 5px", borderRadius: "4px", flexShrink: 0 }}>🔥 EXTREME</span>
+                          ) : convo.chat_mode === "ai" ? (
+                            <span style={{ fontSize: "10px", color: "var(--accent-cyan)", fontWeight: "700", backgroundColor: "rgba(56, 189, 248, 0.15)", padding: "1px 5px", borderRadius: "4px", flexShrink: 0 }}>🤖 AI</span>
+                          ) : (
+                            <span style={{ fontSize: "10px", color: "var(--accent-emerald)", fontWeight: "700", backgroundColor: "rgba(16, 185, 129, 0.15)", padding: "1px 5px", borderRadius: "4px", flexShrink: 0 }}>🧑 HUMAN</span>
+                          )}
                         </span>
-                        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                        <span style={{ fontSize: "11px", color: "var(--text-muted)", flexShrink: 0, marginLeft: "4px" }}>
                           {formatTime(convo.last_updated)}
                         </span>
                       </div>
@@ -537,23 +576,91 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: "8px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  {/* 3 Chat Modes Selector */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      backgroundColor: "var(--bg-base)",
+                      borderRadius: "10px",
+                      padding: "3px",
+                      border: "1px solid var(--border-subtle)",
+                      gap: "2px",
+                    }}
+                  >
+                    <button
+                      onClick={() => handleSetMode("human")}
+                      disabled={isSettingMode}
+                      title="Human Mode: Sahal's casual lazy style, no emojis, short replies, smart and accurate answers"
+                      style={{
+                        padding: "5px 10px",
+                        borderRadius: "7px",
+                        border: "none",
+                        backgroundColor: (selectedConvo.chat_mode || "human") === "human" ? "rgba(16, 185, 129, 0.2)" : "transparent",
+                        color: (selectedConvo.chat_mode || "human") === "human" ? "var(--accent-emerald)" : "var(--text-muted)",
+                        fontWeight: (selectedConvo.chat_mode || "human") === "human" ? "700" : "500",
+                        fontSize: "12px",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      🧑 Human
+                    </button>
+                    <button
+                      onClick={() => handleSetMode("ai")}
+                      disabled={isSettingMode}
+                      title="AI Mode: Friendly bot, moderate emojis, medium-length clear answers"
+                      style={{
+                        padding: "5px 10px",
+                        borderRadius: "7px",
+                        border: "none",
+                        backgroundColor: selectedConvo.chat_mode === "ai" ? "rgba(56, 189, 248, 0.2)" : "transparent",
+                        color: selectedConvo.chat_mode === "ai" ? "var(--accent-cyan)" : "var(--text-muted)",
+                        fontWeight: selectedConvo.chat_mode === "ai" ? "700" : "500",
+                        fontSize: "12px",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      🤖 AI
+                    </button>
+                    <button
+                      onClick={() => handleSetMode("extreme_ai")}
+                      disabled={isSettingMode}
+                      title="Extreme AI Mode: Lots of emojis, long thorough explanations, full assistant"
+                      style={{
+                        padding: "5px 10px",
+                        borderRadius: "7px",
+                        border: "none",
+                        backgroundColor: selectedConvo.chat_mode === "extreme_ai" ? "rgba(245, 158, 11, 0.2)" : "transparent",
+                        color: selectedConvo.chat_mode === "extreme_ai" ? "#f59e0b" : "var(--text-muted)",
+                        fontWeight: selectedConvo.chat_mode === "extreme_ai" ? "700" : "500",
+                        fontSize: "12px",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      🔥 Extreme AI
+                    </button>
+                  </div>
+
                   <button
                     onClick={handleToggleAI}
                     disabled={isTogglingAI}
                     style={{
                       padding: "6px 12px",
                       borderRadius: "8px",
-                      backgroundColor: selectedConvo.ai_disabled ? "rgba(239, 68, 68, 0.15)" : "rgba(16, 185, 129, 0.15)",
-                      border: selectedConvo.ai_disabled ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid rgba(16, 185, 129, 0.3)",
-                      color: selectedConvo.ai_disabled ? "var(--accent-rose)" : "var(--accent-emerald)",
+                      backgroundColor: selectedConvo.ai_disabled ? "rgba(239, 68, 68, 0.15)" : "var(--bg-surface-elevated)",
+                      border: selectedConvo.ai_disabled ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid var(--border-subtle)",
+                      color: selectedConvo.ai_disabled ? "var(--accent-rose)" : "var(--text-secondary)",
                       fontSize: "12px",
                       fontWeight: "600",
                       cursor: "pointer",
                       transition: "all 0.2s ease",
                     }}
                   >
-                    {selectedConvo.ai_disabled ? "🤖 AI: Disabled" : "🤖 AI: Enabled"}
+                    {selectedConvo.ai_disabled ? "⏸️ AI Paused" : "▶️ AI Active"}
                   </button>
 
                   <button

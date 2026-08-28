@@ -63,6 +63,7 @@ export interface Conversation {
   channel_type?: string;
   messages: Message[];
   ai_disabled?: boolean;
+  chat_mode?: "human" | "ai" | "extreme_ai";
 }
 
 export interface DashboardState {
@@ -141,12 +142,13 @@ export function getGlobalState(): DashboardState {
 export function updateGlobalState(partial: Partial<DashboardState>): DashboardState {
   const current = getGlobalState();
   
-  // Merge conversations to preserve the ai_disabled status from local store
+  // Merge conversations to preserve the ai_disabled status & chat_mode from local store
   const mergedConversations = (partial.conversations || []).map((convo) => {
     const existing = current.conversations.find((c) => c.user_id === convo.user_id);
     return {
       ...convo,
       ai_disabled: existing ? existing.ai_disabled : (convo.ai_disabled || false),
+      chat_mode: (existing?.chat_mode || convo.chat_mode || "human") as "human" | "ai" | "extreme_ai",
     };
   });
 
@@ -179,4 +181,15 @@ export function toggleAI(userId: string, disabled?: boolean): boolean {
     return target;
   }
   return false;
+}
+
+export function setChatMode(userId: string, mode: "human" | "ai" | "extreme_ai"): string {
+  const current = getGlobalState();
+  const convo = current.conversations.find((c) => c.user_id === userId);
+  if (convo) {
+    convo.chat_mode = mode;
+    saveToFile(current);
+    return mode;
+  }
+  return "human";
 }

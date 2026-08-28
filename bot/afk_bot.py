@@ -9,13 +9,8 @@ from datetime import datetime
 
 from bot.groq_client import GroqClient
 from bot.conversation_store import ConversationStore
-from bot.gif_library import GifLibrary
-
-# Probability of sending a GIF after a normal reply
 from bot.cloud_sync import CloudSync
 
-# Probability of sending a GIF after a normal reply
-GIF_CHANCE = 0.55
 # Typing delay range (seconds) — makes it feel human
 TYPING_MIN = 1.8
 TYPING_MAX = 4.5
@@ -27,7 +22,6 @@ class AFKBot(discord.Client):
         self.config = config
         self.owner_name = config.get("your_name", "Sahal")
         self.groq = GroqClient(config["groq_api_key"], self.owner_name)
-        self.gif_lib = GifLibrary()
         self.store = ConversationStore()
         self.afk_mode: bool = config.get("afk_mode", True)
         self.event_callback = event_callback
@@ -296,27 +290,6 @@ class AFKBot(discord.Client):
             return
 
         try:
-            # ── First-message: send hello GIF before anything else ──────────
-            if is_first:
-                hello_gif = "https://tenor.com/t5rAQpd0GBf.gif"
-                try:
-                    await message.channel.send(hello_gif)
-                except Exception as ge:
-                    print(f"[First-msg GIF] {ge}")
-                self.emit(
-                    "new_message",
-                    {
-                        "user_id": convo_id,
-                        "user_name": user_name,
-                        "convo_name": convo_name,
-                        "convo_avatar": convo_avatar,
-                        "content": f"[GIF:hello]{hello_gif}",
-                        "role": "assistant",
-                        "channel_type": channel_type,
-                        "timestamp": datetime.now().isoformat(),
-                    },
-                )
-
             # Collect image URLs from attachments for vision analysis
             image_urls = [
                 a.url for a in message.attachments
@@ -335,12 +308,23 @@ class AFKBot(discord.Client):
                 await asyncio.sleep(delay)
 
             history = self.store.get_history(convo_id)
+            chat_mode = self.store.get_chat_mode(convo_id)
 
-            # Get reply from Groq — pass image URLs for vision if any
-            reply = await self.groq.get_response(history, user_name=user_name, image_urls=image_urls if image_urls else None)
+            # Get reply from Groq based on conversation chat_mode
+            reply = await self.groq.get_response(
+                history,
+                user_name=user_name,
+                image_urls=image_urls if image_urls else None,
+                chat_mode=chat_mode,
+            )
 
             if not reply:
-                reply = f"yo {user_name}! been kinda tied up rn, hit me up later 🙌"
+                if chat_mode == "extreme_ai":
+                    reply = f"Hey {user_name}! 🤖 I'm on it! {self.owner_name} is away right now but your message is logged! 💬✨"
+                elif chat_mode == "ai":
+                    reply = f"Hey {user_name}! {self.owner_name} is AFK right now, but I'll make sure he sees this 🙌"
+                else:
+                    reply = f"yo {user_name}! been kinda tied up rn, hit me up later"
 
             # Store and send reply (directly quoting the user's message)
             self.store.add_message(
@@ -358,7 +342,7 @@ class AFKBot(discord.Client):
             except Exception:
                 await message.channel.send(reply)
 
-            print(f"[{channel_type}] 🤖 Bot (replied in {convo_name}): {reply[:80]}")
+            print(f"[{channel_type}] 🤖 Bot [{chat_mode}] (replied in {convo_name}): {reply[:80]}")
 
             # Notify dashboard of reply
             self.emit(
@@ -374,34 +358,6 @@ class AFKBot(discord.Client):
                     "timestamp": datetime.now().isoformat(),
                 },
             )
-
-            # ── Maybe send a stored GIF ─────────────────────────
-            mood = self.gif_lib.detect_mood_from_text(message.content + " " + reply)
-            should_send_gif = (mood == "roast" and random.random() < 0.70) or (random.random() < GIF_CHANCE)
-
-            if should_send_gif:
-                gif_url = self.gif_lib.get_random_gif(mood)
-                if gif_url:
-                    await asyncio.sleep(random.uniform(0.8, 1.6))
-                    try:
-                        await message.channel.send(gif_url)
-                    except Exception as ge:
-                        print(f"[GIF Error] {ge}")
-
-                    print(f"[{channel_type}] 🎬 GIF ({mood}) → {convo_name}: {gif_url}")
-                    self.emit(
-                        "new_message",
-                        {
-                            "user_id": convo_id,
-                            "user_name": user_name,
-                            "convo_name": convo_name,
-                            "convo_avatar": convo_avatar,
-                            "content": f"[GIF:{mood}]{gif_url}",
-                            "role": "assistant",
-                            "channel_type": channel_type,
-                            "timestamp": datetime.now().isoformat(),
-                        },
-                    )
 
             # Push updated stats and conversation list to dashboard
             self.emit("stats_update", self.store.get_stats())

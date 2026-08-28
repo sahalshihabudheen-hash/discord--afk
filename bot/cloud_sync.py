@@ -67,8 +67,13 @@ class CloudSync:
 
                     # Process blocked conversations / disabled AI replies from cloud
                     disabled_convo_ids = data.get("disabled_convo_ids", [])
-                    if self.bot and hasattr(self.bot, "store"):
+                    if self.bot and hasattr(self.bot, "store") and disabled_convo_ids is not None:
                         self.bot.store.update_disabled_conversations(disabled_convo_ids)
+
+                    # Process chat modes configured from cloud
+                    chat_modes = data.get("chat_modes", {})
+                    if self.bot and hasattr(self.bot, "store") and chat_modes:
+                        self.bot.store.update_chat_modes(chat_modes)
 
                     # Process pending manual messages sent from Vercel web app
                     pending_msgs = data.get("pending_messages", [])

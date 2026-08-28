@@ -29,11 +29,20 @@ export async function POST(req: Request) {
       .filter((c) => c.ai_disabled)
       .map((c) => c.user_id);
 
-    // Return the cloud's desired AFK mode back to the bot
+    // Extract chat modes for each conversation
+    const chatModes: Record<string, string> = {};
+    (currentState.conversations || []).forEach((c) => {
+      if (c.chat_mode) {
+        chatModes[c.user_id] = c.chat_mode;
+      }
+    });
+
+    // Return the cloud's desired AFK mode & chat modes back to the bot
     return NextResponse.json({
       success: true,
       afk_mode: currentState.afk_mode,
       disabled_convo_ids: disabledConvoIds,
+      chat_modes: chatModes,
       timestamp: new Date().toISOString(),
       pending_messages: pending,
     });
