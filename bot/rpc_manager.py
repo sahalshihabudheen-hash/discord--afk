@@ -11,6 +11,14 @@ from typing import Optional, Tuple, Dict, Any
 import discord
 
 
+DEFAULT_ICONS = {
+    "competing": "https://cdn-icons-png.flaticon.com/512/3112/3112946.png",  # Trophy
+    "playing": "https://cdn-icons-png.flaticon.com/512/3238/3238016.png",    # Assignment/Notebook
+    "listening": "https://cdn-icons-png.flaticon.com/512/3845/3845876.png",  # Headphones/Music
+    "watching": "https://cdn-icons-png.flaticon.com/512/3074/3074767.png",   # Monitor/Study
+    "streaming": "https://cdn-icons-png.flaticon.com/512/5968/5968819.png",  # Twitch/Live
+}
+
 DEFAULT_RPC_CONFIG = {
     "enabled": True,
     "activity_type": "playing",  # playing, listening, watching, streaming, competing, custom, none
@@ -18,6 +26,10 @@ DEFAULT_RPC_CONFIG = {
     "details": "Chapter 4 Draft",
     "state": "Final Polish",
     "emoji": "📝",
+    "large_image": "https://cdn-icons-png.flaticon.com/512/3238/3238016.png",
+    "large_text": "Writing Assignment",
+    "small_image": "",
+    "small_text": "",
     "stream_url": "",
     "status": "dnd",  # online, idle, dnd, invisible
     "show_timestamp": True,
@@ -145,6 +157,28 @@ class RPCManager:
             kwargs["state"] = state
         if timestamps:
             kwargs["timestamps"] = timestamps
+
+        # ── 3. Resolve Assets (Logo / Images) ─────────────────────────
+        large_image = (cfg.get("large_image") or "").strip()
+        if not large_image:
+            large_image = DEFAULT_ICONS.get(act_type, DEFAULT_ICONS["playing"])
+
+        large_text = (cfg.get("large_text") or name or "Activity").strip()
+        small_image = (cfg.get("small_image") or "").strip()
+        small_text = (cfg.get("small_text") or "").strip()
+
+        assets_dict = {}
+        if large_image:
+            assets_dict["large_image"] = large_image
+            if large_text:
+                assets_dict["large_text"] = large_text
+        if small_image:
+            assets_dict["small_image"] = small_image
+            if small_text:
+                assets_dict["small_text"] = small_text
+
+        if assets_dict:
+            kwargs["assets"] = assets_dict
 
         activity = discord.Activity(**kwargs)
         return activity, status

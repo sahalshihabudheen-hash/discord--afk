@@ -52,6 +52,10 @@ export interface RpcConfig {
   details?: string;
   state?: string;
   emoji?: string;
+  large_image?: string;
+  large_text?: string;
+  small_image?: string;
+  small_text?: string;
   stream_url?: string;
   status: string;
   show_timestamp: boolean;
@@ -88,11 +92,15 @@ export default function Dashboard() {
   const [isSavingRpc, setIsSavingRpc] = useState(false);
   const [rpcForm, setRpcForm] = useState<RpcConfig>({
     enabled: true,
-    activity_type: "playing",
+    activity_type: "competing",
     name: "Writing assignment",
     details: "Chapter 4 Draft",
     state: "Final Polish",
     emoji: "📝",
+    large_image: "https://cdn-icons-png.flaticon.com/512/3112/3112946.png",
+    large_text: "Writing Assignment",
+    small_image: "",
+    small_text: "",
     stream_url: "",
     status: "dnd",
     show_timestamp: true,
@@ -133,11 +141,15 @@ export default function Dashboard() {
 
   const RPC_PRESETS = {
     assignment: {
-      activity_type: "playing",
+      activity_type: "competing",
       name: "Writing assignment",
       details: "Chapter 4 Draft",
       state: "Final Polish",
       emoji: "📝",
+      large_image: "https://cdn-icons-png.flaticon.com/512/3112/3112946.png",
+      large_text: "Writing Assignment",
+      small_image: "",
+      small_text: "",
       status: "dnd",
       show_timestamp: true,
     },
@@ -147,6 +159,10 @@ export default function Dashboard() {
       details: "Chill Study Session",
       state: "Deep Focus",
       emoji: "🎧",
+      large_image: "https://cdn-icons-png.flaticon.com/512/3845/3845876.png",
+      large_text: "Listening to Music",
+      small_image: "",
+      small_text: "",
       status: "online",
       show_timestamp: true,
     },
@@ -156,6 +172,10 @@ export default function Dashboard() {
       details: "discord-control",
       state: "Workspace 1",
       emoji: "💻",
+      large_image: "https://cdn.worldvectorlogo.com/logos/visual-studio-code-1.svg",
+      large_text: "Visual Studio Code",
+      small_image: "",
+      small_text: "",
       status: "online",
       show_timestamp: true,
     },
@@ -165,6 +185,10 @@ export default function Dashboard() {
       details: "Competitive Match",
       state: "In Lobby (4/5)",
       emoji: "🎮",
+      large_image: "https://cdn-icons-png.flaticon.com/512/3669/3669992.png",
+      large_text: "Valorant",
+      small_image: "",
+      small_text: "",
       status: "dnd",
       show_timestamp: true,
     },
@@ -174,6 +198,10 @@ export default function Dashboard() {
       details: "Algorithms & Data Structures",
       state: "Do Not Disturb",
       emoji: "📚",
+      large_image: "https://cdn-icons-png.flaticon.com/512/3074/3074767.png",
+      large_text: "Studying",
+      small_image: "",
+      small_text: "",
       status: "idle",
       show_timestamp: true,
     },
@@ -183,6 +211,10 @@ export default function Dashboard() {
       details: "",
       state: "Back in 15 mins",
       emoji: "☕",
+      large_image: "",
+      large_text: "",
+      small_image: "",
+      small_text: "",
       status: "idle",
       show_timestamp: false,
     },
@@ -192,6 +224,10 @@ export default function Dashboard() {
       details: "",
       state: "",
       emoji: "",
+      large_image: "",
+      large_text: "",
+      small_image: "",
+      small_text: "",
       status: "online",
       show_timestamp: false,
     },
@@ -1789,17 +1825,27 @@ export default function Dashboard() {
                               fontSize: "24px",
                               flexShrink: 0,
                               border: "1px solid rgba(255,255,255,0.06)",
+                              overflow: "hidden",
                             }}
                           >
-                            {rpcForm.activity_type === "listening"
-                              ? "🎧"
-                              : rpcForm.activity_type === "watching"
-                              ? "📺"
-                              : rpcForm.activity_type === "streaming"
-                              ? "🟣"
-                              : rpcForm.activity_type === "competing"
-                              ? "🏆"
-                              : "🎮"}
+                            {rpcForm.large_image ? (
+                              <img
+                                src={rpcForm.large_image}
+                                alt="Activity Logo"
+                                style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "10px" }}
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                              />
+                            ) : (
+                              rpcForm.activity_type === "listening"
+                                ? "🎧"
+                                : rpcForm.activity_type === "watching"
+                                ? "📺"
+                                : rpcForm.activity_type === "streaming"
+                                ? "🟣"
+                                : rpcForm.activity_type === "competing"
+                                ? "🏆"
+                                : "🎮"
+                            )}
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
                             <div style={{ fontSize: "13px", fontWeight: "700", color: "#f2f3f5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>

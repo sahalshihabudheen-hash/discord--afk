@@ -73,6 +73,10 @@ export interface RpcConfig {
   details?: string;
   state?: string;
   emoji?: string;
+  large_image?: string;
+  large_text?: string;
+  small_image?: string;
+  small_text?: string;
   stream_url?: string;
   status: "online" | "idle" | "dnd" | "invisible" | string;
   show_timestamp: boolean;
