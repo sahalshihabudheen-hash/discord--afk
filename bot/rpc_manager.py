@@ -11,7 +11,7 @@ from typing import Optional, Tuple, Dict, Any
 import discord
 
 
-DEFAULT_APP_ID = 1543503530659418112
+DEFAULT_APP_ID = "1543503530659418112"
 
 DEFAULT_ICONS = {
     "competing": "trophy",
@@ -28,7 +28,7 @@ DEFAULT_RPC_CONFIG = {
     "details": "Chapter 4 Draft",
     "state": "Final Polish",
     "emoji": "📝",
-    "application_id": DEFAULT_APP_ID,
+    "application_id": "1543503530659418112",
     "large_image": "assignment",
     "large_text": "Writing Assignment",
     "small_image": "",
@@ -57,6 +57,11 @@ class RPCManager:
                 with open(self.config_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     config = {**DEFAULT_RPC_CONFIG, **data}
+                    # Ensure application_id is a string to prevent JS float precision loss
+                    app_id_str = str(config.get("application_id") or DEFAULT_APP_ID).strip()
+                    if app_id_str == "1543503530659418000" or not app_id_str:
+                        app_id_str = "1543503530659418112"
+                    config["application_id"] = app_id_str
                     return config
             except Exception as e:
                 print(f"[RPCManager] Error loading {self.config_path}: {e}")
@@ -64,7 +69,13 @@ class RPCManager:
 
     def save_config(self, config: Dict[str, Any]):
         """Save RPC config to JSON file."""
-        self.current_config = {**self.current_config, **config}
+        clean_cfg = dict(config)
+        app_id_str = str(clean_cfg.get("application_id") or DEFAULT_APP_ID).strip()
+        if app_id_str == "1543503530659418000" or not app_id_str:
+            app_id_str = "1543503530659418112"
+        clean_cfg["application_id"] = app_id_str
+
+        self.current_config = {**self.current_config, **clean_cfg}
         try:
             os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
             with open(self.config_path, "w", encoding="utf-8") as f:
