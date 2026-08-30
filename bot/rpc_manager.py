@@ -11,6 +11,8 @@ from typing import Optional, Tuple, Dict, Any
 import discord
 
 
+DEFAULT_APP_ID = 1107567406834167859
+
 DEFAULT_ICONS = {
     "competing": "https://cdn-icons-png.flaticon.com/512/3112/3112946.png",  # Trophy
     "playing": "https://cdn-icons-png.flaticon.com/512/3238/3238016.png",    # Assignment/Notebook
@@ -26,6 +28,7 @@ DEFAULT_RPC_CONFIG = {
     "details": "Chapter 4 Draft",
     "state": "Final Polish",
     "emoji": "📝",
+    "application_id": DEFAULT_APP_ID,
     "large_image": "https://cdn-icons-png.flaticon.com/512/3238/3238016.png",
     "large_text": "Writing Assignment",
     "small_image": "",
@@ -45,6 +48,7 @@ class RPCManager:
             )
         self.config_path = config_path
         self.current_config: Dict[str, Any] = self.load_config()
+        self.proxy_cache: Dict[str, str] = {}
 
     def load_config(self) -> Dict[str, Any]:
         """Load RPC config from JSON file, or fallback to defaults."""
@@ -67,6 +71,56 @@ class RPCManager:
                 json.dump(self.current_config, f, indent=2, ensure_ascii=False)
         except Exception as e:
             print(f"[RPCManager] Error saving {self.config_path}: {e}")
+
+    async def resolve_external_assets(self, client: discord.Client, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Proxy external image URLs through Discord's media proxy so they render properly in Discord clients.
+        """
+        cfg = dict(config)
+        app_id = int(cfg.get("application_id") or DEFAULT_APP_ID)
+        act_type = (cfg.get("activity_type") or "playing").lower()
+
+        large_img = (cfg.get("large_image") or "").strip()
+        if not large_img and act_type in DEFAULT_ICONS:
+            large_img = DEFAULT_ICONS[act_type]
+
+        small_img = (cfg.get("small_image") or "").strip()
+
+        # Check and proxy large_image
+        if large_img and (large_img.startswith("http://") or large_img.startswith("https://")):
+            if not ("media.discordapp.net" in large_img or "cdn.discordapp.com" in large_img):
+                if large_img in self.proxy_cache:
+                    cfg["large_image"] = self.proxy_cache[large_img]
+                else:
+                    try:
+                        proxied = await client.proxy_external_application_assets(app_id, large_img)
+                        if proxied and len(proxied) > 0:
+                            self.proxy_cache[large_img] = proxied[0]
+                            cfg["large_image"] = proxied[0]
+                            print(f"[RPCManager] 🖼️ Proxied large_image: {proxied[0]}")
+                    except Exception as e:
+                        print(f"[RPCManager] ⚠️ Failed to proxy large_image '{large_img}': {e}")
+            else:
+                cfg["large_image"] = large_img
+
+        # Check and proxy small_image
+        if small_img and (small_img.startswith("http://") or small_img.startswith("https://")):
+            if not ("media.discordapp.net" in small_img or "cdn.discordapp.com" in small_img):
+                if small_img in self.proxy_cache:
+                    cfg["small_image"] = self.proxy_cache[small_img]
+                else:
+                    try:
+                        proxied = await client.proxy_external_application_assets(app_id, small_img)
+                        if proxied and len(proxied) > 0:
+                            self.proxy_cache[small_img] = proxied[0]
+                            cfg["small_image"] = proxied[0]
+                    except Exception as e:
+                        print(f"[RPCManager] ⚠️ Failed to proxy small_image: {e}")
+            else:
+                cfg["small_image"] = small_img
+
+        cfg["application_id"] = app_id
+        return cfg
 
     def build_presence(self, config: Optional[Dict[str, Any]] = None) -> Tuple[Optional[discord.BaseActivity], discord.Status]:
         """
@@ -99,6 +153,7 @@ class RPCManager:
         emoji = (cfg.get("emoji") or "").strip() or None
         stream_url = (cfg.get("stream_url") or "").strip() or None
         show_timestamp = cfg.get("show_timestamp", False)
+        app_id = int(cfg.get("application_id") or DEFAULT_APP_ID)
 
         timestamps = None
         if show_timestamp:
@@ -150,6 +205,7 @@ class RPCManager:
         kwargs: Dict[str, Any] = {
             "type": discord_act_type,
             "name": name,
+            "application_id": app_id,
         }
         if details:
             kwargs["details"] = details
@@ -160,8 +216,8 @@ class RPCManager:
 
         # ── 3. Resolve Assets (Logo / Images) ─────────────────────────
         large_image = (cfg.get("large_image") or "").strip()
-        if not large_image:
-            large_image = DEFAULT_ICONS.get(act_type, DEFAULT_ICONS["playing"])
+        if not large_image and act_type in DEFAULT_ICONS:
+            large_image = DEFAULT_ICONS[act_type]
 
         large_text = (cfg.get("large_text") or name or "Activity").strip()
         small_image = (cfg.get("small_image") or "").strip()

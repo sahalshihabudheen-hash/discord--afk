@@ -178,9 +178,11 @@ class AFKBot(discord.Client):
     async def apply_rpc(self, config: dict = None) -> bool:
         """Apply custom presence/activity and online status to Discord."""
         try:
-            if config:
-                self.rpc_manager.save_config(config)
-            activity, status = self.rpc_manager.build_presence()
+            target_config = config if config is not None else self.rpc_manager.current_config
+            # Resolve image assets through Discord Media Proxy
+            resolved_config = await self.rpc_manager.resolve_external_assets(self, target_config)
+            self.rpc_manager.save_config(resolved_config)
+            activity, status = self.rpc_manager.build_presence(resolved_config)
             await self.change_presence(activity=activity, status=status)
             cfg = self.rpc_manager.current_config
             print(f"[RPC] 🎮 Presence updated: {cfg.get('activity_type', 'none')} | {cfg.get('name', 'Custom')} (Status: {status})")
