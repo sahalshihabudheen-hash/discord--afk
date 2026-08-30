@@ -66,11 +66,25 @@ export interface Conversation {
   chat_mode?: "human" | "ai" | "extreme_ai";
 }
 
+export interface RpcConfig {
+  enabled: boolean;
+  activity_type: "playing" | "listening" | "watching" | "streaming" | "competing" | "custom" | "none" | string;
+  name: string;
+  details?: string;
+  state?: string;
+  emoji?: string;
+  stream_url?: string;
+  status: "online" | "idle" | "dnd" | "invisible" | string;
+  show_timestamp: boolean;
+  start_time?: number | null;
+}
+
 export interface DashboardState {
   afk_mode: boolean;
   owner_name: string;
   last_sync: string | null;
   bot_connected: boolean;
+  rpc_config?: RpcConfig;
   stats: {
     total_conversations: number;
     total_messages: number;
@@ -106,11 +120,25 @@ export function clearPendingMessages() {
   global.__PENDING_MESSAGES = [];
 }
 
+const defaultRpcConfig: RpcConfig = {
+  enabled: true,
+  activity_type: "playing",
+  name: "Writing assignment",
+  details: "Chapter 4 Draft",
+  state: "Final Polish",
+  emoji: "📝",
+  stream_url: "",
+  status: "dnd",
+  show_timestamp: true,
+  start_time: null,
+};
+
 const defaultState: DashboardState = {
   afk_mode: true,
   owner_name: "Sahal",
   last_sync: null,
   bot_connected: false,
+  rpc_config: defaultRpcConfig,
   stats: {
     total_conversations: 0,
     total_messages: 0,
@@ -192,4 +220,14 @@ export function setChatMode(userId: string, mode: "human" | "ai" | "extreme_ai")
     return mode;
   }
   return "human";
+}
+
+export function setRpcConfig(newConfig: Partial<RpcConfig>): RpcConfig {
+  const current = getGlobalState();
+  current.rpc_config = {
+    ...(current.rpc_config || defaultRpcConfig),
+    ...newConfig,
+  };
+  saveToFile(current);
+  return current.rpc_config;
 }

@@ -48,6 +48,7 @@ class CloudSync:
             "owner_name": self.owner_name,
             "stats": self.store.get_stats(),
             "conversations": self.store.get_sorted_conversations(),
+            "rpc_config": getattr(self.bot, "rpc_manager", None).current_config if hasattr(self.bot, "rpc_manager") else None,
             "timestamp": datetime.now().isoformat(),
         }
 
@@ -64,6 +65,24 @@ class CloudSync:
                     # If user toggled AFK on the Vercel mobile web app, update local bot!
                     if self.bot and cloud_afk is not None and cloud_afk != self.bot.afk_mode:
                         self.bot.toggle_afk(cloud_afk)
+
+                    # Process RPC update configured from Vercel web app
+                    cloud_rpc = data.get("rpc_config")
+                    if self.bot and hasattr(self.bot, "rpc_manager") and cloud_rpc:
+                        current_cfg = self.bot.rpc_manager.current_config
+                        # Compare key properties to see if Vercel changed the RPC
+                        if (
+                            cloud_rpc.get("activity_type") != current_cfg.get("activity_type")
+                            or cloud_rpc.get("name") != current_cfg.get("name")
+                            or cloud_rpc.get("status") != current_cfg.get("status")
+                            or cloud_rpc.get("details") != current_cfg.get("details")
+                            or cloud_rpc.get("state") != current_cfg.get("state")
+                            or cloud_rpc.get("emoji") != current_cfg.get("emoji")
+                            or cloud_rpc.get("enabled") != current_cfg.get("enabled")
+                            or cloud_rpc.get("show_timestamp") != current_cfg.get("show_timestamp")
+                        ):
+                            print(f"[Cloud Sync] 🎮 Updating RPC from Vercel: {cloud_rpc.get('activity_type')} - {cloud_rpc.get('name')}")
+                            asyncio.create_task(self.bot.apply_rpc(cloud_rpc))
 
                     # Process blocked conversations / disabled AI replies from cloud
                     disabled_convo_ids = data.get("disabled_convo_ids", [])

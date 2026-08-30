@@ -16,6 +16,7 @@ export async function POST(req: Request) {
         total_ai_replies: 0,
       },
       conversations: data.conversations || [],
+      ...(data.rpc_config ? { rpc_config: data.rpc_config } : {}),
     });
 
     const currentState = getGlobalState();
@@ -37,10 +38,11 @@ export async function POST(req: Request) {
       }
     });
 
-    // Return the cloud's desired AFK mode & chat modes back to the bot
+    // Return the cloud's desired AFK mode, RPC config & chat modes back to the bot
     return NextResponse.json({
       success: true,
       afk_mode: currentState.afk_mode,
+      rpc_config: currentState.rpc_config,
       disabled_convo_ids: disabledConvoIds,
       chat_modes: chatModes,
       timestamp: new Date().toISOString(),

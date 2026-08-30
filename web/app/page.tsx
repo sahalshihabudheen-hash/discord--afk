@@ -45,11 +45,25 @@ interface Conversation {
   chat_mode?: "human" | "ai" | "extreme_ai";
 }
 
+export interface RpcConfig {
+  enabled: boolean;
+  activity_type: string;
+  name: string;
+  details?: string;
+  state?: string;
+  emoji?: string;
+  stream_url?: string;
+  status: string;
+  show_timestamp: boolean;
+  start_time?: number | null;
+}
+
 interface DashboardState {
   afk_mode: boolean;
   owner_name: string;
   last_sync: string | null;
   bot_connected: boolean;
+  rpc_config?: RpcConfig;
   stats: {
     total_conversations: number;
     total_messages: number;
@@ -68,6 +82,22 @@ export default function Dashboard() {
   const [isSending, setIsSending] = useState(false);
   const [isTogglingAI, setIsTogglingAI] = useState(false);
   const [isSettingMode, setIsSettingMode] = useState(false);
+
+  // ── Discord RPC & Status Modal State ──
+  const [isRpcModalOpen, setIsRpcModalOpen] = useState(false);
+  const [isSavingRpc, setIsSavingRpc] = useState(false);
+  const [rpcForm, setRpcForm] = useState<RpcConfig>({
+    enabled: true,
+    activity_type: "playing",
+    name: "Writing assignment",
+    details: "Chapter 4 Draft",
+    state: "Final Polish",
+    emoji: "📝",
+    stream_url: "",
+    status: "dnd",
+    show_timestamp: true,
+  });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const prevConvoIdRef = useRef<string | null>(null);
@@ -98,6 +128,117 @@ export default function Dashboard() {
       console.error("Set mode error:", e);
     } finally {
       setIsSettingMode(false);
+    }
+  };
+
+  const RPC_PRESETS = {
+    assignment: {
+      activity_type: "playing",
+      name: "Writing assignment",
+      details: "Chapter 4 Draft",
+      state: "Final Polish",
+      emoji: "📝",
+      status: "dnd",
+      show_timestamp: true,
+    },
+    music: {
+      activity_type: "listening",
+      name: "Lofi Beats",
+      details: "Chill Study Session",
+      state: "Deep Focus",
+      emoji: "🎧",
+      status: "online",
+      show_timestamp: true,
+    },
+    vscode: {
+      activity_type: "playing",
+      name: "Visual Studio Code",
+      details: "discord-control",
+      state: "Workspace 1",
+      emoji: "💻",
+      status: "online",
+      show_timestamp: true,
+    },
+    gaming: {
+      activity_type: "playing",
+      name: "Valorant",
+      details: "Competitive Match",
+      state: "In Lobby (4/5)",
+      emoji: "🎮",
+      status: "dnd",
+      show_timestamp: true,
+    },
+    study: {
+      activity_type: "watching",
+      name: "Computer Science Lecture",
+      details: "Algorithms & Data Structures",
+      state: "Do Not Disturb",
+      emoji: "📚",
+      status: "idle",
+      show_timestamp: true,
+    },
+    coffee: {
+      activity_type: "custom",
+      name: "Taking a coffee break ☕",
+      details: "",
+      state: "Back in 15 mins",
+      emoji: "☕",
+      status: "idle",
+      show_timestamp: false,
+    },
+    clear: {
+      activity_type: "none",
+      name: "",
+      details: "",
+      state: "",
+      emoji: "",
+      status: "online",
+      show_timestamp: false,
+    },
+  };
+
+  const handleOpenRpcModal = () => {
+    if (state?.rpc_config) {
+      setRpcForm(state.rpc_config);
+    }
+    setIsRpcModalOpen(true);
+  };
+
+  const handleApplyPreset = (presetKey: keyof typeof RPC_PRESETS) => {
+    const preset = RPC_PRESETS[presetKey];
+    if (preset) {
+      setRpcForm((prev) => ({
+        ...prev,
+        ...preset,
+      }));
+    }
+  };
+
+  const handleSaveRpc = async () => {
+    setIsSavingRpc(true);
+    try {
+      const payload = {
+        ...rpcForm,
+        enabled: rpcForm.activity_type !== "none",
+        start_time: Math.floor(Date.now() / 1000),
+      };
+      const res = await fetch("/api/set-rpc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setState((prev) => (prev ? { ...prev, rpc_config: data.rpc_config || payload } : prev));
+        setIsRpcModalOpen(false);
+      } else {
+        alert("Failed to update Discord RPC.");
+      }
+    } catch (e) {
+      console.error("Save RPC error:", e);
+      alert("Error saving RPC configuration.");
+    } finally {
+      setIsSavingRpc(false);
     }
   };
 
@@ -364,6 +505,57 @@ export default function Dashboard() {
           >
             <span>🤖</span> Replies: <strong style={{ color: "var(--text-primary)" }}>{state?.stats.total_ai_replies || 0}</strong>
           </div>
+
+          {/* ── Discord RPC & Status Button ── */}
+          <button
+            onClick={handleOpenRpcModal}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "7px 16px",
+              borderRadius: "20px",
+              backgroundColor: "var(--bg-surface-elevated)",
+              border: "1px solid var(--border-subtle)",
+              color: "var(--text-primary)",
+              fontSize: "13px",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+            title="Configure Discord Rich Presence & Status"
+          >
+            <span style={{ fontSize: "15px" }}>
+              {rpcForm.activity_type === "listening"
+                ? "🎧"
+                : rpcForm.activity_type === "watching"
+                ? "📺"
+                : rpcForm.activity_type === "streaming"
+                ? "🟣"
+                : rpcForm.activity_type === "competing"
+                ? "🏆"
+                : rpcForm.activity_type === "custom"
+                ? (rpcForm.emoji || "💬")
+                : "🎮"}
+            </span>
+            <span>{state?.rpc_config?.name || "Discord RPC"}</span>
+            <span
+              style={{
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                backgroundColor:
+                  state?.rpc_config?.status === "dnd"
+                    ? "#ef4444"
+                    : state?.rpc_config?.status === "idle"
+                    ? "#f59e0b"
+                    : state?.rpc_config?.status === "invisible"
+                    ? "#64748b"
+                    : "#22c55e",
+                display: "inline-block",
+              }}
+            />
+          </button>
 
           <button
             onClick={handleToggleAFK}
@@ -1177,6 +1369,518 @@ export default function Dashboard() {
           </aside>
         )}
       </div>
+
+      {/* ── Discord RPC & Status Manager Modal ────────────────────────────── */}
+      {isRpcModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.75)",
+            backdropFilter: "blur(8px)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsRpcModalOpen(false);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "var(--bg-surface)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "16px",
+              width: "100%",
+              maxWidth: "860px",
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
+              overflow: "hidden",
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: "16px 24px",
+                borderBottom: "1px solid var(--border-subtle)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                backgroundColor: "var(--bg-surface-elevated)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "16px", fontWeight: "700", color: "var(--text-primary)" }}>
+                <span>🎮</span> Discord Custom Rich Presence (RPC) & Status
+              </div>
+              <button
+                onClick={() => setIsRpcModalOpen(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--text-muted)",
+                  fontSize: "18px",
+                  cursor: "pointer",
+                  padding: "4px 8px",
+                  borderRadius: "6px",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div
+              style={{
+                padding: "24px",
+                overflowY: "auto",
+                display: "grid",
+                gridTemplateColumns: "1.15fr 0.85fr",
+                gap: "24px",
+              }}
+            >
+              {/* Left Column: Form & Presets */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {/* Status selector */}
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: "8px" }}>
+                    Discord Online Status
+                  </label>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    {[
+                      { id: "online", label: "🟢 Online" },
+                      { id: "idle", label: "🟡 Idle (AFK)" },
+                      { id: "dnd", label: "🔴 Busy (DND)" },
+                      { id: "invisible", label: "⚪ Invisible" },
+                    ].map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setRpcForm((p) => ({ ...p, status: s.id }))}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: "8px",
+                          fontSize: "12px",
+                          fontWeight: rpcForm.status === s.id ? "700" : "500",
+                          backgroundColor: rpcForm.status === s.id ? "rgba(16, 185, 129, 0.15)" : "var(--bg-surface-elevated)",
+                          border: rpcForm.status === s.id ? "1px solid var(--accent-emerald)" : "1px solid var(--border-subtle)",
+                          color: rpcForm.status === s.id ? "var(--accent-emerald)" : "var(--text-secondary)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Activity Type selector */}
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: "8px" }}>
+                    Activity Type & Symbol
+                  </label>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    {[
+                      { id: "playing", label: "🎮 Playing" },
+                      { id: "listening", label: "🎧 Listening to" },
+                      { id: "watching", label: "📺 Watching" },
+                      { id: "streaming", label: "🟣 Streaming" },
+                      { id: "competing", label: "🏆 Competing in" },
+                      { id: "custom", label: "💬 Custom Status" },
+                      { id: "none", label: "🚫 Clear" },
+                    ].map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setRpcForm((p) => ({ ...p, activity_type: t.id }))}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: "8px",
+                          fontSize: "12px",
+                          fontWeight: rpcForm.activity_type === t.id ? "700" : "500",
+                          backgroundColor: rpcForm.activity_type === t.id ? "rgba(79, 142, 247, 0.15)" : "var(--bg-surface-elevated)",
+                          border: rpcForm.activity_type === t.id ? "1px solid #4f8ef7" : "1px solid var(--border-subtle)",
+                          color: rpcForm.activity_type === t.id ? "#4f8ef7" : "var(--text-secondary)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 1-Click Presets */}
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: "8px" }}>
+                    Quick Presets (1-Click)
+                  </label>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    <button type="button" onClick={() => handleApplyPreset("assignment")} style={{ padding: "4px 10px", borderRadius: "14px", fontSize: "11px", backgroundColor: "var(--bg-surface-elevated)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)", cursor: "pointer" }}>
+                      📝 Writing Assignment
+                    </button>
+                    <button type="button" onClick={() => handleApplyPreset("music")} style={{ padding: "4px 10px", borderRadius: "14px", fontSize: "11px", backgroundColor: "var(--bg-surface-elevated)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)", cursor: "pointer" }}>
+                      🎧 Listening to Music
+                    </button>
+                    <button type="button" onClick={() => handleApplyPreset("vscode")} style={{ padding: "4px 10px", borderRadius: "14px", fontSize: "11px", backgroundColor: "var(--bg-surface-elevated)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)", cursor: "pointer" }}>
+                      💻 Coding (VS Code)
+                    </button>
+                    <button type="button" onClick={() => handleApplyPreset("gaming")} style={{ padding: "4px 10px", borderRadius: "14px", fontSize: "11px", backgroundColor: "var(--bg-surface-elevated)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)", cursor: "pointer" }}>
+                      🎮 Gaming (Valorant)
+                    </button>
+                    <button type="button" onClick={() => handleApplyPreset("study")} style={{ padding: "4px 10px", borderRadius: "14px", fontSize: "11px", backgroundColor: "var(--bg-surface-elevated)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)", cursor: "pointer" }}>
+                      📚 Studying Lecture
+                    </button>
+                    <button type="button" onClick={() => handleApplyPreset("coffee")} style={{ padding: "4px 10px", borderRadius: "14px", fontSize: "11px", backgroundColor: "var(--bg-surface-elevated)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)", cursor: "pointer" }}>
+                      ☕ Coffee Break
+                    </button>
+                    <button type="button" onClick={() => handleApplyPreset("clear")} style={{ padding: "4px 10px", borderRadius: "14px", fontSize: "11px", backgroundColor: "var(--bg-surface-elevated)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)", cursor: "pointer" }}>
+                      🧹 Clear
+                    </button>
+                  </div>
+                </div>
+
+                {/* Input Fields */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: "500" }}>
+                    {rpcForm.activity_type === "custom" ? "Custom Status Text" : "Activity Name"}
+                  </label>
+                  <input
+                    type="text"
+                    value={rpcForm.name || ""}
+                    onChange={(e) => setRpcForm((p) => ({ ...p, name: e.target.value }))}
+                    placeholder="e.g. Writing assignment, Spotify, Game"
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      backgroundColor: "var(--bg-base)",
+                      border: "1px solid var(--border-subtle)",
+                      color: "var(--text-primary)",
+                      fontSize: "13px",
+                      outline: "none",
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: "500" }}>Details (Line 1)</label>
+                  <input
+                    type="text"
+                    value={rpcForm.details || ""}
+                    onChange={(e) => setRpcForm((p) => ({ ...p, details: e.target.value }))}
+                    placeholder="e.g. Chapter 4 Polish"
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      backgroundColor: "var(--bg-base)",
+                      border: "1px solid var(--border-subtle)",
+                      color: "var(--text-primary)",
+                      fontSize: "13px",
+                      outline: "none",
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: "500" }}>State (Line 2)</label>
+                  <input
+                    type="text"
+                    value={rpcForm.state || ""}
+                    onChange={(e) => setRpcForm((p) => ({ ...p, state: e.target.value }))}
+                    placeholder="e.g. Due Tomorrow"
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      backgroundColor: "var(--bg-base)",
+                      border: "1px solid var(--border-subtle)",
+                      color: "var(--text-primary)",
+                      fontSize: "13px",
+                      outline: "none",
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: "500" }}>Custom Emoji / Symbol</label>
+                  <input
+                    type="text"
+                    value={rpcForm.emoji || ""}
+                    onChange={(e) => setRpcForm((p) => ({ ...p, emoji: e.target.value }))}
+                    placeholder="📝"
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      backgroundColor: "var(--bg-base)",
+                      border: "1px solid var(--border-subtle)",
+                      color: "var(--text-primary)",
+                      fontSize: "13px",
+                      outline: "none",
+                    }}
+                  />
+                  <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "4px" }}>
+                    {["📝", "✍️", "🎧", "💻", "🎮", "🔥", "⚡", "📚", "☕", "🏆"].map((em) => (
+                      <span
+                        key={em}
+                        onClick={() => setRpcForm((p) => ({ ...p, emoji: em }))}
+                        style={{
+                          padding: "2px 7px",
+                          borderRadius: "4px",
+                          backgroundColor: "var(--bg-surface-elevated)",
+                          border: "1px solid var(--border-subtle)",
+                          cursor: "pointer",
+                          fontSize: "13px",
+                        }}
+                      >
+                        {em}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {rpcForm.activity_type === "streaming" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <label style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: "500" }}>Stream URL</label>
+                    <input
+                      type="text"
+                      value={rpcForm.stream_url || ""}
+                      onChange={(e) => setRpcForm((p) => ({ ...p, stream_url: e.target.value }))}
+                      placeholder="https://twitch.tv/username"
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        backgroundColor: "var(--bg-base)",
+                        border: "1px solid var(--border-subtle)",
+                        color: "var(--text-primary)",
+                        fontSize: "13px",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
+                  <input
+                    type="checkbox"
+                    id="showTimerWeb"
+                    checked={rpcForm.show_timestamp}
+                    onChange={(e) => setRpcForm((p) => ({ ...p, show_timestamp: e.target.checked }))}
+                  />
+                  <label htmlFor="showTimerWeb" style={{ fontSize: "12px", color: "var(--text-secondary)", cursor: "pointer" }}>
+                    ⏱️ Show elapsed timer on Discord
+                  </label>
+                </div>
+              </div>
+
+              {/* Right Column: Live Discord Profile Preview */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: "11px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)" }}>
+                    Live Discord Profile Preview
+                  </span>
+                  <span style={{ fontSize: "10px", color: "var(--accent-emerald)", fontWeight: "700" }}>REALTIME</span>
+                </div>
+
+                <div
+                  style={{
+                    backgroundColor: "#232428",
+                    borderRadius: "12px",
+                    overflow: "hidden",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    color: "#dbdee1",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+                  }}
+                >
+                  <div style={{ height: "60px", background: "linear-gradient(135deg, #5865f2, #eb459e)", position: "relative" }}>
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "24px",
+                        left: "16px",
+                        width: "68px",
+                        height: "68px",
+                        borderRadius: "50%",
+                        backgroundColor: "#232428",
+                        padding: "5px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          borderRadius: "50%",
+                          backgroundColor: "#5865f2",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "24px",
+                          color: "#fff",
+                          fontWeight: "700",
+                          position: "relative",
+                        }}
+                      >
+                        {state?.owner_name?.[0] || "S"}
+                        <span
+                          style={{
+                            position: "absolute",
+                            bottom: "-2px",
+                            right: "-2px",
+                            width: "18px",
+                            height: "18px",
+                            borderRadius: "50%",
+                            backgroundColor:
+                              rpcForm.status === "dnd"
+                                ? "#f23f43"
+                                : rpcForm.status === "idle"
+                                ? "#f0b232"
+                                : rpcForm.status === "invisible"
+                                ? "#80848e"
+                                : "#23a55a",
+                            border: "3.5px solid #232428",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ padding: "38px 16px 16px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                    <div>
+                      <div style={{ fontSize: "16px", fontWeight: "700", color: "#f2f3f5" }}>{state?.owner_name || "Sahal"}</div>
+                      <div style={{ fontSize: "12px", color: "#949ba4" }}>@{state?.owner_name?.toLowerCase() || "sahal"}</div>
+                    </div>
+
+                    {/* Custom Status */}
+                    {rpcForm.activity_type === "custom" && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: "#dbdee1" }}>
+                        <span>{rpcForm.emoji || "✨"}</span>
+                        <span>{rpcForm.name || rpcForm.state || "Busy"}</span>
+                      </div>
+                    )}
+
+                    {/* Rich Presence Activity Box */}
+                    {rpcForm.activity_type !== "none" && rpcForm.activity_type !== "custom" && (
+                      <div style={{ backgroundColor: "#111214", borderRadius: "8px", padding: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                        <div style={{ fontSize: "11px", fontWeight: "800", textTransform: "uppercase", color: "#949ba4", letterSpacing: "0.04em" }}>
+                          {rpcForm.activity_type === "listening"
+                            ? "LISTENING TO SPOTIFY"
+                            : rpcForm.activity_type === "watching"
+                            ? "WATCHING"
+                            : rpcForm.activity_type === "streaming"
+                            ? "STREAMING ON TWITCH"
+                            : rpcForm.activity_type === "competing"
+                            ? "COMPETING IN"
+                            : "PLAYING A GAME"}
+                        </div>
+                        <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                          <div
+                            style={{
+                              width: "48px",
+                              height: "48px",
+                              borderRadius: "10px",
+                              backgroundColor: "#1e1f22",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "24px",
+                              flexShrink: 0,
+                              border: "1px solid rgba(255,255,255,0.06)",
+                            }}
+                          >
+                            {rpcForm.activity_type === "listening"
+                              ? "🎧"
+                              : rpcForm.activity_type === "watching"
+                              ? "📺"
+                              : rpcForm.activity_type === "streaming"
+                              ? "🟣"
+                              : rpcForm.activity_type === "competing"
+                              ? "🏆"
+                              : "🎮"}
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                            <div style={{ fontSize: "13px", fontWeight: "700", color: "#f2f3f5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {rpcForm.name || "Writing assignment"}
+                            </div>
+                            {rpcForm.details && (
+                              <div style={{ fontSize: "12px", color: "#b5bac1", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {rpcForm.details}
+                              </div>
+                            )}
+                            {rpcForm.state && (
+                              <div style={{ fontSize: "12px", color: "#b5bac1", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {rpcForm.state}
+                              </div>
+                            )}
+                            {rpcForm.show_timestamp && (
+                              <div style={{ fontSize: "11px", color: "#949ba4", marginTop: "2px" }}>
+                                00:04:12 elapsed
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ fontSize: "11px", color: "var(--text-muted)", textAlign: "center" }}>
+                  Cloud updates sync automatically to your local PC Discord bot in real time.
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: "16px 24px",
+                borderTop: "1px solid var(--border-subtle)",
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+                backgroundColor: "var(--bg-surface-elevated)",
+              }}
+            >
+              <button
+                onClick={() => setIsRpcModalOpen(false)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  backgroundColor: "var(--bg-surface)",
+                  border: "1px solid var(--border-subtle)",
+                  color: "var(--text-secondary)",
+                  fontSize: "13px",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveRpc}
+                disabled={isSavingRpc}
+                style={{
+                  padding: "8px 20px",
+                  borderRadius: "8px",
+                  backgroundColor: "var(--accent-emerald)",
+                  border: "none",
+                  color: "#000",
+                  fontSize: "13px",
+                  fontWeight: "700",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <span>🚀</span> {isSavingRpc ? "Applying..." : "Apply to Discord"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
