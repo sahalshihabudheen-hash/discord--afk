@@ -13,6 +13,18 @@ import discord
 
 DEFAULT_APP_ID = "1543503530659418112"
 
+# Direct Discord Snowflake Asset IDs from Developer Portal API
+ASSET_NAME_TO_ID = {
+    "fire": "1543505015350497330",
+    "coffee": "1543505015648292994",
+    "study": "1543505015652622386",
+    "trophy": "1543505015652749342",
+    "vscode": "1543505015656808518",
+    "assignment": "1543505015753281657",
+    "music": "1543505016046882968",
+    "gaming": "1543505016994799626",
+}
+
 DEFAULT_ICONS = {
     "competing": "trophy",
     "playing": "assignment",
@@ -230,8 +242,15 @@ class RPCManager:
         if not large_image and act_type in DEFAULT_ICONS:
             large_image = DEFAULT_ICONS[act_type]
 
+        # Resolve asset names to direct Discord snowflake IDs if matching App ID
+        if app_id == 1543503530659418112:
+            if large_image.lower() in ASSET_NAME_TO_ID:
+                large_image = ASSET_NAME_TO_ID[large_image.lower()]
+
         large_text = (cfg.get("large_text") or name or "Activity").strip()
         small_image = (cfg.get("small_image") or "").strip()
+        if app_id == 1543503530659418112 and small_image.lower() in ASSET_NAME_TO_ID:
+            small_image = ASSET_NAME_TO_ID[small_image.lower()]
         small_text = (cfg.get("small_text") or "").strip()
 
         assets_dict = {}
