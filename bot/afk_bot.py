@@ -185,7 +185,7 @@ class AFKBot(discord.Client):
             activity, status = self.rpc_manager.build_presence(resolved_config)
             await self.change_presence(activity=activity, status=status)
             cfg = self.rpc_manager.current_config
-            print(f"[RPC] 🎮 Presence updated: {cfg.get('activity_type', 'none')} | {cfg.get('name', 'Custom')} (Status: {status})")
+            print(f"[RPC] Presence updated: {cfg.get('activity_type', 'none')} | {cfg.get('name', 'Custom')} (Status: {status})")
             self.emit("rpc_update", cfg)
             return True
         except Exception as e:

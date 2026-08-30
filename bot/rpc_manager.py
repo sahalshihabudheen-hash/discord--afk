@@ -97,9 +97,9 @@ class RPCManager:
                         if proxied and len(proxied) > 0:
                             self.proxy_cache[large_img] = proxied[0]
                             cfg["large_image"] = proxied[0]
-                            print(f"[RPCManager] 🖼️ Proxied large_image: {proxied[0]}")
+                            print(f"[RPCManager] Proxied large_image: {proxied[0]}")
                     except Exception as e:
-                        print(f"[RPCManager] ⚠️ Failed to proxy large_image '{large_img}': {e}")
+                        print(f"[RPCManager] Failed to proxy large_image '{large_img}': {e}")
             else:
                 cfg["large_image"] = large_img
 
@@ -115,7 +115,7 @@ class RPCManager:
                             self.proxy_cache[small_img] = proxied[0]
                             cfg["small_image"] = proxied[0]
                     except Exception as e:
-                        print(f"[RPCManager] ⚠️ Failed to proxy small_image: {e}")
+                        print(f"[RPCManager] Failed to proxy small_image: {e}")
             else:
                 cfg["small_image"] = small_img
 
