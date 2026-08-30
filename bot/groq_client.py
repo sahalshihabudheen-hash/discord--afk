@@ -13,8 +13,8 @@ class GroqClient:
     def __init__(self, api_key: str, owner_name: str):
         self.client = AsyncGroq(api_key=api_key)
         self.owner_name = owner_name
-        self.model = "llama-3.3-70b-versatile"
-        self.fallback_model = "llama-3.1-8b-instant"
+        self.model = "openai/gpt-oss-120b"
+        self.fallback_model = "openai/gpt-oss-20b"
 
     def _normalize(self, text: str) -> str:
         text = text.lower().strip()
@@ -198,9 +198,9 @@ Sound raw, short, and real. ZERO emojis. No links. Don't get played."""
                     print(f"[Groq] Fallback model also failed ({fe})")
                     raw = ""
 
-            cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+            cleaned = re.sub(r"<think>.*?(?:</think>|$)", "", raw, flags=re.DOTALL).strip()
             if not cleaned:
-                cleaned = raw.strip()
+                cleaned = re.sub(r"<think>", "", raw, flags=re.IGNORECASE).strip()
 
             # Check for duplicate responses
             is_duplicate = False
@@ -256,7 +256,9 @@ Sound raw, short, and real. ZERO emojis. No links. Don't get played."""
                 temperature=0.2,
             )
             raw = (resp.choices[0].message.content or "").strip()
-            cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+            cleaned = re.sub(r"<think>.*?(?:</think>|$)", "", raw, flags=re.DOTALL).strip()
+            if not cleaned:
+                cleaned = re.sub(r"<think>", "", raw, flags=re.IGNORECASE).strip()
             if cleaned and not cleaned.upper().startswith("NO") and len(cleaned) > 2:
                 return cleaned
         except Exception as e:

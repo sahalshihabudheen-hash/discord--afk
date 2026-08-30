@@ -542,11 +542,412 @@
       to { transform: translateX(120px); opacity: 0; }
     }
 
-    .toast-icon { font-size: 18px; flex-shrink: 0; }
-    .toast-title { font-size: 13px; font-weight: 600; color: var(--text-1); }
-    .toast-body { font-size: 12px; color: var(--text-2); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+    /* ── Discord RPC & Status Modal & Preview Styles ───────────────── */
+    .rpc-topbar-btn {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 12px;
+      color: var(--text-1);
+      cursor: pointer;
+      transition: all var(--transition);
+      user-select: none;
+      white-space: nowrap;
+    }
+    .rpc-topbar-btn:hover {
+      border-color: var(--accent);
+      background: var(--bg-2);
+      box-shadow: 0 0 12px rgba(79,142,247,0.2);
+    }
+    .rpc-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      flex-shrink: 0;
+    }
+    .rpc-status-dot.online { background: #23a55a; }
+    .rpc-status-dot.idle { background: #f0b232; }
+    .rpc-status-dot.dnd { background: #f23f43; }
+    .rpc-status-dot.invisible { background: #80848e; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.72);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+    .rpc-modal {
+      background: #11151c;
+      border: 1px solid var(--border-hover);
+      border-radius: var(--r-lg);
+      width: 100%;
+      max-width: 860px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      transform: scale(0.96);
+      transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+      overflow: hidden;
+    }
+    .modal-overlay.open .rpc-modal {
+      transform: scale(1);
+    }
+    .rpc-modal-head {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-1);
+    }
+    .rpc-modal-title {
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--text-1);
+    }
+    .rpc-modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-2);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: all var(--transition);
+    }
+    .rpc-modal-close:hover {
+      background: var(--bg-3);
+      color: var(--text-1);
+    }
+    .rpc-modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 24px;
+    }
+    .rpc-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .rpc-label-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-3);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pill-selector {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .pill-btn {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 6px 11px;
+      font-size: 12px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pill-btn:hover {
+      border-color: var(--border-hover);
+      color: var(--text-1);
+    }
+    .pill-btn.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .rpc-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .rpc-input-group label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-2);
+    }
+    .rpc-input {
+      background: var(--bg-0);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 8px 12px;
+      color: var(--text-1);
+      font-size: 13px;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    .rpc-input:focus {
+      border-color: var(--accent);
+    }
+    .quick-emojis {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .emoji-tag {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .emoji-tag:hover {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+    .presets-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .preset-chip {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .preset-chip:hover {
+      border-color: var(--accent);
+      color: var(--text-1);
+      background: var(--bg-3);
+    }
+
+    /* ── Live Discord Preview Card ─────────────────────────── */
+    .discord-card {
+      background: #232428;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.06);
+      color: #dbdee1;
+      font-family: 'Inter', sans-serif;
+    }
+    .discord-banner {
+      height: 60px;
+      background: linear-gradient(135deg, #5865f2, #eb459e);
+      position: relative;
+    }
+    .discord-avatar-wrap {
+      position: absolute;
+      top: 24px;
+      left: 16px;
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: #232428;
+      padding: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .discord-avatar {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: #5865f2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: #fff;
+      font-weight: 700;
+      position: relative;
+    }
+    .discord-status-badge {
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #23a55a;
+      border: 3.5px solid #232428;
+    }
+    .discord-status-badge.online { background: #23a55a; }
+    .discord-status-badge.idle { background: #f0b232; }
+    .discord-status-badge.dnd { background: #f23f43; }
+    .discord-status-badge.invisible { background: #80848e; }
+
+    .discord-body {
+      padding: 38px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .discord-user-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .discord-display-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #f2f3f5;
+    }
+    .discord-handle {
+      font-size: 12px;
+      color: #949ba4;
+    }
+    .discord-custom-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #dbdee1;
+      padding: 4px 0;
+    }
+    .discord-activity-box {
+      background: #111214;
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .discord-activity-header {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #949ba4;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .discord-activity-content {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .discord-activity-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      background: #1e1f22;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .discord-activity-text {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .discord-activity-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: #f2f3f5;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .discord-activity-details, .discord-activity-state {
+      font-size: 12px;
+      color: #b5bac1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .discord-activity-time {
+      font-size: 11px;
+      color: #949ba4;
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    .rpc-modal-foot {
+      padding: 14px 20px;
+      background: var(--bg-1);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .btn-secondary {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 8px 16px;
+      color: var(--text-2);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .btn-secondary:hover {
+      background: var(--bg-3);
+      color: var(--text-1);
+    }
+    .btn-primary {
+      background: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: var(--r-sm);
+      padding: 8px 20px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all var(--transition);
+    }
+    .btn-primary:hover {
+      filter: brightness(1.1);
+      box-shadow: 0 0 16px rgba(79,142,247,0.35);
+    }
 
     /* ── Responsive ────────────────────────────────────────── */
+    @media (max-width: 780px) {
+      .rpc-modal-body { grid-template-columns: 1fr; }
+    }
     @media (max-width: 680px) {
       .app { grid-template-columns: 1fr; grid-template-rows: 58px 52px 1fr; }
       .sidebar { grid-row: 2; border-right: none; border-bottom: 1px solid var(--border); flex-direction: row; }
@@ -582,6 +983,12 @@
       <span id="connLabel">Connecting…</span>
     </div>
 
+    <button class="rpc-topbar-btn" id="openRpcBtn" onclick="openRpcModal()" title="Customize Discord Status & RPC">
+      <span id="topbarRpcIcon">🎮</span>
+      <span id="topbarRpcLabel">Discord RPC</span>
+      <span class="rpc-status-dot online" id="topbarRpcStatusDot"></span>
+    </button>
+
     <div class="afk-btn" id="afkBtn" onclick="toggleAFK()" role="button" aria-pressed="{{ 'true' if afk_mode else 'false' }}">
       <div class="sw" id="sw"><div class="sw-knob"></div></div>
       <span class="afk-text" id="afkText">AFK</span>
@@ -607,6 +1014,166 @@
     </div>
   </main>
 
+</div>
+
+<!-- ── Discord RPC & Status Manager Modal ─────────────────── -->
+<div class="modal-overlay" id="rpcModalOverlay" onclick="handleModalOverlayClick(event)">
+  <div class="rpc-modal" id="rpcModal">
+    <div class="rpc-modal-head">
+      <div class="rpc-modal-title">
+        <span>🎮</span> Discord Custom Rich Presence (RPC) & Status
+      </div>
+      <button class="rpc-modal-close" onclick="closeRpcModal()" title="Close">✕</button>
+    </div>
+
+    <div class="rpc-modal-body">
+      <!-- Left Column: Controls & Presets -->
+      <div class="rpc-col">
+        <!-- Status Level (Online/Idle/DND/Invisible) -->
+        <div>
+          <div class="rpc-label-title">Discord Online Status</div>
+          <div class="pill-selector" id="rpcStatusSelector">
+            <button class="pill-btn active" data-status="online" onclick="selectRpcStatus('online')">🟢 Online</button>
+            <button class="pill-btn" data-status="idle" onclick="selectRpcStatus('idle')">🟡 Idle (AFK)</button>
+            <button class="pill-btn" data-status="dnd" onclick="selectRpcStatus('dnd')">🔴 Busy (Do Not Disturb)</button>
+            <button class="pill-btn" data-status="invisible" onclick="selectRpcStatus('invisible')">⚪ Invisible</button>
+          </div>
+        </div>
+
+        <!-- Activity Type (Playing/Listening/Watching/Streaming/Competing/Custom/None) -->
+        <div>
+          <div class="rpc-label-title">Activity Type / Symbol</div>
+          <div class="pill-selector" id="rpcTypeSelector">
+            <button class="pill-btn active" data-type="playing" onclick="selectRpcType('playing')">🎮 Playing</button>
+            <button class="pill-btn" data-type="listening" onclick="selectRpcType('listening')">🎧 Listening to</button>
+            <button class="pill-btn" data-type="watching" onclick="selectRpcType('watching')">📺 Watching</button>
+            <button class="pill-btn" data-type="streaming" onclick="selectRpcType('streaming')">🟣 Streaming</button>
+            <button class="pill-btn" data-type="competing" onclick="selectRpcType('competing')">🏆 Competing in</button>
+            <button class="pill-btn" data-type="custom" onclick="selectRpcType('custom')">💬 Custom Status</button>
+            <button class="pill-btn" data-type="none" onclick="selectRpcType('none')">🚫 Clear Activity</button>
+          </div>
+        </div>
+
+        <!-- Quick 1-Click Presets -->
+        <div>
+          <div class="rpc-label-title">Quick Presets (1-Click)</div>
+          <div class="presets-row">
+            <button class="preset-chip" onclick="applyPreset('assignment')">📝 Writing Assignment</button>
+            <button class="preset-chip" onclick="applyPreset('music')">🎧 Listening to Music</button>
+            <button class="preset-chip" onclick="applyPreset('vscode')">💻 Coding (VS Code)</button>
+            <button class="preset-chip" onclick="applyPreset('gaming')">🎮 Gaming (Valorant/CS2)</button>
+            <button class="preset-chip" onclick="applyPreset('study')">📚 Studying Lecture</button>
+            <button class="preset-chip" onclick="applyPreset('coffee')">☕ Coffee Break</button>
+            <button class="preset-chip" onclick="applyPreset('clear')">🧹 Clear</button>
+          </div>
+        </div>
+
+        <!-- Text Fields -->
+        <div class="rpc-input-group" id="rpcNameGroup">
+          <label id="rpcNameLabel">Activity Name (e.g. Writing assignment, Spotify, Game)</label>
+          <input type="text" class="rpc-input" id="rpcNameInput" placeholder="Writing assignment" oninput="updateRpcPreview()" />
+        </div>
+
+        <div class="rpc-input-group" id="rpcDetailsGroup">
+          <label>Details (Line 1)</label>
+          <input type="text" class="rpc-input" id="rpcDetailsInput" placeholder="Chapter 4 Polish" oninput="updateRpcPreview()" />
+        </div>
+
+        <div class="rpc-input-group" id="rpcStateGroup">
+          <label>State (Line 2)</label>
+          <input type="text" class="rpc-input" id="rpcStateInput" placeholder="Due Tomorrow" oninput="updateRpcPreview()" />
+        </div>
+
+        <div class="rpc-input-group" id="rpcEmojiGroup">
+          <label>Custom Emoji / Symbol</label>
+          <input type="text" class="rpc-input" id="rpcEmojiInput" placeholder="📝" oninput="updateRpcPreview()" />
+          <div class="quick-emojis">
+            <span class="emoji-tag" onclick="pickEmoji('📝')">📝</span>
+            <span class="emoji-tag" onclick="pickEmoji('✍️')">✍️</span>
+            <span class="emoji-tag" onclick="pickEmoji('🎧')">🎧</span>
+            <span class="emoji-tag" onclick="pickEmoji('💻')">💻</span>
+            <span class="emoji-tag" onclick="pickEmoji('🎮')">🎮</span>
+            <span class="emoji-tag" onclick="pickEmoji('🔥')">🔥</span>
+            <span class="emoji-tag" onclick="pickEmoji('⚡')">⚡</span>
+            <span class="emoji-tag" onclick="pickEmoji('📚')">📚</span>
+            <span class="emoji-tag" onclick="pickEmoji('☕')">☕</span>
+            <span class="emoji-tag" onclick="pickEmoji('🏆')">🏆</span>
+          </div>
+        </div>
+
+        <div class="rpc-input-group" id="rpcStreamUrlGroup" style="display:none;">
+          <label>Twitch / YouTube Stream URL</label>
+          <input type="text" class="rpc-input" id="rpcStreamUrlInput" placeholder="https://twitch.tv/username" oninput="updateRpcPreview()" />
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+          <input type="checkbox" id="rpcTimestampCheck" onchange="updateRpcPreview()" checked />
+          <label for="rpcTimestampCheck" style="font-size:12px; color:var(--text-2); cursor:pointer;">
+            ⏱️ Show elapsed timer (e.g. 00:15:30 elapsed)
+          </label>
+        </div>
+      </div>
+
+      <!-- Right Column: Live Discord Profile Preview Card -->
+      <div class="rpc-col">
+        <div class="rpc-label-title">
+          <span>Live Discord Profile Preview</span>
+          <span style="font-size:10px; color:var(--accent); font-weight:600;">REALTIME</span>
+        </div>
+
+        <div class="discord-card">
+          <div class="discord-banner">
+            <div class="discord-avatar-wrap">
+              <div class="discord-avatar" id="prevAvatar">
+                {{ owner_name[0] if owner_name else 'S' }}
+                <div class="discord-status-badge online" id="prevStatusBadge"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="discord-body">
+            <div class="discord-user-info">
+              <div class="discord-display-name">{{ owner_name }}</div>
+              <div class="discord-handle">@{{ owner_name.lower() }}</div>
+            </div>
+
+            <!-- Custom status line -->
+            <div class="discord-custom-status" id="prevCustomStatus">
+              <span id="prevCustomEmoji">📝</span>
+              <span id="prevCustomText">Writing assignment</span>
+            </div>
+
+            <!-- Rich presence activity block -->
+            <div class="discord-activity-box" id="prevActivityBox">
+              <div class="discord-activity-header" id="prevActivityHeader">
+                <span>PLAYING A GAME</span>
+              </div>
+              <div class="discord-activity-content">
+                <div class="discord-activity-icon" id="prevActivityIcon">🎮</div>
+                <div class="discord-activity-text">
+                  <div class="discord-activity-name" id="prevActivityName">Writing assignment</div>
+                  <div class="discord-activity-details" id="prevActivityDetails">Chapter 4 Polish</div>
+                  <div class="discord-activity-state" id="prevActivityState">Due Tomorrow</div>
+                  <div class="discord-activity-time" id="prevActivityTime">00:04:12 elapsed</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size:11px; color:var(--text-3); text-align:center; margin-top:4px;">
+          Changes apply directly to your Discord account presence via Gateway in real time.
+        </div>
+      </div>
+    </div>
+
+    <div class="rpc-modal-foot">
+      <button class="btn-secondary" onclick="closeRpcModal()">Cancel</button>
+      <button class="btn-primary" id="saveRpcBtn" onclick="saveAndApplyRpc()">
+        <span>🚀</span> Apply to Discord
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- ── Toasts ────────────────────────────────────────────── -->
@@ -939,6 +1506,333 @@
     }
   }
 
+  // ── Discord RPC & Status Manager Logic ─────────────────────
+  let currentRpc = {
+    enabled: true,
+    activity_type: 'playing',
+    name: 'Writing assignment',
+    details: 'Chapter 4 Draft',
+    state: 'Final Polish',
+    emoji: '📝',
+    stream_url: '',
+    status: 'dnd',
+    show_timestamp: true,
+    start_time: Math.floor(Date.now() / 1000),
+  };
+
+  let selectedRpcStatus = 'dnd';
+  let selectedRpcType = 'playing';
+  let rpcElapsedSec = 252; // initial counter for preview
+
+  const RPC_PRESETS = {
+    assignment: {
+      activity_type: 'playing',
+      name: 'Writing assignment',
+      details: 'Chapter 4 Draft',
+      state: 'Final Polish',
+      emoji: '📝',
+      status: 'dnd',
+      show_timestamp: true,
+    },
+    music: {
+      activity_type: 'listening',
+      name: 'Lofi Beats',
+      details: 'Chill Study Session',
+      state: 'Deep Focus',
+      emoji: '🎧',
+      status: 'online',
+      show_timestamp: true,
+    },
+    vscode: {
+      activity_type: 'playing',
+      name: 'Visual Studio Code',
+      details: 'discord-control',
+      state: 'Workspace 1',
+      emoji: '💻',
+      status: 'online',
+      show_timestamp: true,
+    },
+    gaming: {
+      activity_type: 'playing',
+      name: 'Valorant',
+      details: 'Competitive Match',
+      state: 'In Lobby (4/5)',
+      emoji: '🎮',
+      status: 'dnd',
+      show_timestamp: true,
+    },
+    study: {
+      activity_type: 'watching',
+      name: 'Computer Science Lecture',
+      details: 'Algorithms & Data Structures',
+      state: 'Do Not Disturb',
+      emoji: '📚',
+      status: 'idle',
+      show_timestamp: true,
+    },
+    coffee: {
+      activity_type: 'custom',
+      name: 'Taking a coffee break ☕',
+      details: '',
+      state: 'Back in 15 mins',
+      emoji: '☕',
+      status: 'idle',
+      show_timestamp: false,
+    },
+    clear: {
+      activity_type: 'none',
+      name: '',
+      details: '',
+      state: '',
+      emoji: '',
+      status: 'online',
+      show_timestamp: false,
+    },
+  };
+
+  function openRpcModal() {
+    loadRpcFormFromConfig(currentRpc);
+    document.getElementById('rpcModalOverlay').classList.add('open');
+  }
+
+  function closeRpcModal() {
+    document.getElementById('rpcModalOverlay').classList.remove('open');
+  }
+
+  function handleModalOverlayClick(e) {
+    if (e.target === document.getElementById('rpcModalOverlay')) {
+      closeRpcModal();
+    }
+  }
+
+  function selectRpcStatus(status) {
+    selectedRpcStatus = status;
+    document.querySelectorAll('#rpcStatusSelector .pill-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.status === status);
+    });
+    updateRpcPreview();
+  }
+
+  function selectRpcType(type) {
+    selectedRpcType = type;
+    document.querySelectorAll('#rpcTypeSelector .pill-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === type);
+    });
+
+    const streamGroup = document.getElementById('rpcStreamUrlGroup');
+    const nameGroup = document.getElementById('rpcNameGroup');
+    const nameLabel = document.getElementById('rpcNameLabel');
+
+    if (type === 'streaming') {
+      streamGroup.style.display = 'flex';
+      nameLabel.textContent = 'Stream Title';
+    } else if (type === 'listening') {
+      streamGroup.style.display = 'none';
+      nameLabel.textContent = 'Song / Playlist Name (e.g. Spotify, Lofi Beats)';
+    } else if (type === 'watching') {
+      streamGroup.style.display = 'none';
+      nameLabel.textContent = 'Video / Show Name';
+    } else if (type === 'competing') {
+      streamGroup.style.display = 'none';
+      nameLabel.textContent = 'Competition / Game Title';
+    } else if (type === 'custom') {
+      streamGroup.style.display = 'none';
+      nameLabel.textContent = 'Custom Status Text';
+    } else {
+      streamGroup.style.display = 'none';
+      nameLabel.textContent = 'Activity Name (e.g. Writing assignment, Game)';
+    }
+
+    updateRpcPreview();
+  }
+
+  function pickEmoji(emoji) {
+    document.getElementById('rpcEmojiInput').value = emoji;
+    updateRpcPreview();
+  }
+
+  function applyPreset(presetKey) {
+    const p = RPC_PRESETS[presetKey];
+    if (!p) return;
+    loadRpcFormFromConfig(p);
+  }
+
+  function loadRpcFormFromConfig(cfg) {
+    selectedRpcStatus = cfg.status || 'online';
+    selectedRpcType = cfg.activity_type || 'playing';
+
+    selectRpcStatus(selectedRpcStatus);
+    selectRpcType(selectedRpcType);
+
+    document.getElementById('rpcNameInput').value = cfg.name || '';
+    document.getElementById('rpcDetailsInput').value = cfg.details || '';
+    document.getElementById('rpcStateInput').value = cfg.state || '';
+    document.getElementById('rpcEmojiInput').value = cfg.emoji || '';
+    document.getElementById('rpcStreamUrlInput').value = cfg.stream_url || '';
+    document.getElementById('rpcTimestampCheck').checked = cfg.show_timestamp !== false;
+
+    updateRpcPreview();
+  }
+
+  function updateRpcPreview() {
+    const name = document.getElementById('rpcNameInput').value.trim() || 'Writing assignment';
+    const details = document.getElementById('rpcDetailsInput').value.trim();
+    const state = document.getElementById('rpcStateInput').value.trim();
+    const emoji = document.getElementById('rpcEmojiInput').value.trim() || '📝';
+    const hasTimer = document.getElementById('rpcTimestampCheck').checked;
+
+    // Status badges
+    const statusClass = selectedRpcStatus || 'online';
+    const prevStatusBadge = document.getElementById('prevStatusBadge');
+    prevStatusBadge.className = `discord-status-badge ${statusClass}`;
+
+    const topbarStatusDot = document.getElementById('topbarRpcStatusDot');
+    topbarStatusDot.className = `rpc-status-dot ${statusClass}`;
+
+    // Topbar icon and label
+    const topbarIcon = document.getElementById('topbarRpcIcon');
+    const topbarLabel = document.getElementById('topbarRpcLabel');
+
+    const typeIcons = {
+      playing: '🎮',
+      listening: '🎧',
+      watching: '📺',
+      streaming: '🟣',
+      competing: '🏆',
+      custom: emoji || '💬',
+      none: '⚪',
+    };
+    const currentIcon = typeIcons[selectedRpcType] || '🎮';
+    topbarIcon.textContent = currentIcon;
+    topbarLabel.textContent = selectedRpcType === 'none' ? 'Status: ' + statusClass : name;
+
+    // Live preview card components
+    const prevCustomStatus = document.getElementById('prevCustomStatus');
+    const prevCustomEmoji = document.getElementById('prevCustomEmoji');
+    const prevCustomText = document.getElementById('prevCustomText');
+    const prevActivityBox = document.getElementById('prevActivityBox');
+    const prevActivityHeader = document.getElementById('prevActivityHeader');
+    const prevActivityIcon = document.getElementById('prevActivityIcon');
+    const prevActivityName = document.getElementById('prevActivityName');
+    const prevActivityDetails = document.getElementById('prevActivityDetails');
+    const prevActivityState = document.getElementById('prevActivityState');
+    const prevActivityTime = document.getElementById('prevActivityTime');
+
+    // Custom status text
+    if (selectedRpcType === 'custom') {
+      prevCustomStatus.style.display = 'flex';
+      prevCustomEmoji.textContent = emoji;
+      prevCustomText.textContent = name || state || 'Busy';
+      prevActivityBox.style.display = 'none';
+    } else if (selectedRpcType === 'none') {
+      prevCustomStatus.style.display = 'none';
+      prevActivityBox.style.display = 'none';
+    } else {
+      prevCustomStatus.style.display = 'flex';
+      prevCustomEmoji.textContent = emoji;
+      prevCustomText.textContent = state || 'Studying';
+
+      prevActivityBox.style.display = 'flex';
+      prevActivityIcon.textContent = currentIcon;
+
+      const headers = {
+        playing: 'PLAYING A GAME',
+        listening: 'LISTENING TO SPOTIFY',
+        watching: 'WATCHING',
+        streaming: 'STREAMING ON TWITCH',
+        competing: 'COMPETING IN',
+      };
+      prevActivityHeader.innerHTML = `<span>${headers[selectedRpcType] || 'PLAYING'}</span>`;
+      prevActivityName.textContent = name;
+
+      if (details) {
+        prevActivityDetails.style.display = 'block';
+        prevActivityDetails.textContent = details;
+      } else {
+        prevActivityDetails.style.display = 'none';
+      }
+
+      if (state) {
+        prevActivityState.style.display = 'block';
+        prevActivityState.textContent = state;
+      } else {
+        prevActivityState.style.display = 'none';
+      }
+
+      if (hasTimer) {
+        prevActivityTime.style.display = 'block';
+        prevActivityTime.textContent = formatElapsed(rpcElapsedSec) + ' elapsed';
+      } else {
+        prevActivityTime.style.display = 'none';
+      }
+    }
+  }
+
+  function formatElapsed(sec) {
+    const hrs = Math.floor(sec / 3600);
+    const mins = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    const pad = n => String(n).padStart(2, '0');
+    return hrs > 0 ? `${pad(hrs)}:${pad(mins)}:${pad(s)}` : `${pad(mins)}:${pad(s)}`;
+  }
+
+  // Ticking timer for preview
+  setInterval(() => {
+    rpcElapsedSec++;
+    const tEl = document.getElementById('prevActivityTime');
+    if (tEl && tEl.style.display !== 'none') {
+      tEl.textContent = formatElapsed(rpcElapsedSec) + ' elapsed';
+    }
+  }, 1000);
+
+  async function saveAndApplyRpc() {
+    const btn = document.getElementById('saveRpcBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳</span> Applying...';
+
+    const payload = {
+      enabled: selectedRpcType !== 'none',
+      activity_type: selectedRpcType,
+      status: selectedRpcStatus,
+      name: document.getElementById('rpcNameInput').value.trim(),
+      details: document.getElementById('rpcDetailsInput').value.trim(),
+      state: document.getElementById('rpcStateInput').value.trim(),
+      emoji: document.getElementById('rpcEmojiInput').value.trim() || '📝',
+      stream_url: document.getElementById('rpcStreamUrlInput').value.trim(),
+      show_timestamp: document.getElementById('rpcTimestampCheck').checked,
+      start_time: Math.floor(Date.now() / 1000),
+    };
+
+    try {
+      const res = await fetch('/api/set-rpc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.success) {
+        currentRpc = data.rpc_config || payload;
+        rpcElapsedSec = 0;
+        updateRpcPreview();
+        toast('🎮 Discord RPC Updated', `Status: ${payload.status.toUpperCase()} | ${payload.name || payload.activity_type}`);
+        closeRpcModal();
+      } else {
+        toast('❌ RPC Update Failed', data.error || 'Unknown error', true);
+      }
+    } catch (e) {
+      console.error(e);
+      toast('❌ RPC Error', 'Failed to connect to server', true);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span>🚀</span> Apply to Discord';
+    }
+  }
+
+  socket.on('rpc_update', data => {
+    currentRpc = data;
+    loadRpcFormFromConfig(data);
+  });
+
   // ── Boot ──────────────────────────────────────────────────
   renderAFKBtn();
 
@@ -946,6 +1840,10 @@
     afkMode = d.afk_mode;
     renderAFKBtn();
     if (d.stats) renderStats(d.stats);
+    if (d.rpc_config) {
+      currentRpc = d.rpc_config;
+      loadRpcFormFromConfig(currentRpc);
+    }
     if (d.conversations) {
       d.conversations.forEach(c => {
         convos[c.user_id] = { ...c, messages: c.messages || [] };

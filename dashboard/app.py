@@ -4,6 +4,7 @@ Flask + SocketIO dashboard — real-time conversation monitor.
 
 from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO
+from bot.rpc_manager import RPCManager
 
 socketio = SocketIO(cors_allowed_origins="*", async_mode="threading")
 
@@ -17,11 +18,13 @@ def create_app(config: dict):
     app.config["SECRET_KEY"] = "afk-bot-dashboard-secret-2025"
 
     socketio.init_app(app)
+    rpc_mgr = RPCManager()
 
     # ── Shared state (mutated by both bot callbacks and Flask routes) ──
     state = {
         "afk_mode": config.get("afk_mode", True),
         "bot": None,  # Set in run.py after bot creation
+        "rpc_config": rpc_mgr.load_config(),
         "conversations": [],
         "stats": {
             "total_conversations": 0,
@@ -42,6 +45,8 @@ def create_app(config: dict):
             state["conversations"] = data
         elif event == "afk_toggle":
             state["afk_mode"] = data.get("afk_mode", True)
+        elif event == "rpc_update":
+            state["rpc_config"] = data
 
         socketio.emit(event, data)
 
@@ -53,6 +58,7 @@ def create_app(config: dict):
             "index.html",
             owner_name=config.get("your_name", "Sahal"),
             afk_mode=state["afk_mode"],
+            rpc_config=state["rpc_config"],
         )
 
     @app.route("/api/state")
@@ -60,6 +66,7 @@ def create_app(config: dict):
         return jsonify(
             {
                 "afk_mode": state["afk_mode"],
+                "rpc_config": state["rpc_config"],
                 "conversations": state["conversations"],
                 "stats": state["stats"],
             }
@@ -121,6 +128,32 @@ def create_app(config: dict):
         else:
             return jsonify({"success": False, "error": "Bot is not active"}), 500
 
+    @app.route("/api/get-rpc")
+    def get_rpc():
+        return jsonify({"success": True, "rpc_config": state["rpc_config"]})
+
+    @app.route("/api/set-rpc", methods=["POST"])
+    def set_rpc():
+        data = request.get_json() or {}
+        rpc_mgr = RPCManager()
+        rpc_mgr.save_config(data)
+        state["rpc_config"] = rpc_mgr.current_config
+
+        if state["bot"] is not None:
+            import asyncio
+            fut = asyncio.run_coroutine_threadsafe(
+                state["bot"].apply_rpc(data),
+                state["bot"].loop
+            )
+            try:
+                success = fut.result(timeout=5)
+                return jsonify({"success": success, "rpc_config": state["rpc_config"]})
+            except Exception as e:
+                return jsonify({"success": False, "error": str(e)}), 500
+        else:
+            socketio.emit("rpc_update", state["rpc_config"])
+            return jsonify({"success": True, "rpc_config": state["rpc_config"]})
+
     # ── SocketIO events ───────────────────────────────────────────────
 
     @socketio.on("connect")
@@ -129,6 +162,7 @@ def create_app(config: dict):
             "initial_state",
             {
                 "afk_mode": state["afk_mode"],
+                "rpc_config": state["rpc_config"],
                 "conversations": state["conversations"],
                 "stats": state["stats"],
                 "log": state["log"][:50],

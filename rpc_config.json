@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "activity_type": "playing",
+  "name": "Writing assignment",
+  "details": "Chapter 4 Polish",
+  "state": "Due Tomorrow",
+  "emoji": "📝",
+  "stream_url": "",
+  "status": "dnd",
+  "show_timestamp": true,
+  "start_time": null
+}

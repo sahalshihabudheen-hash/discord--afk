@@ -11,6 +11,7 @@ from bot.groq_client import GroqClient
 from bot.conversation_store import ConversationStore
 from bot.cloud_sync import CloudSync
 from bot.image_generator import ImageGenerator
+from bot.rpc_manager import RPCManager
 
 # Typing delay range (seconds) — lightning fast replies
 TYPING_MIN = 0.2
@@ -25,6 +26,7 @@ class AFKBot(discord.Client):
         self.groq = GroqClient(config["groq_api_key"], self.owner_name)
         self.image_gen = ImageGenerator()
         self.store = ConversationStore()
+        self.rpc_manager = RPCManager()
         self.afk_mode: bool = config.get("afk_mode", True)
         self.event_callback = event_callback
         self.cloud_sync = CloudSync(
@@ -159,15 +161,34 @@ class AFKBot(discord.Client):
         if self.cloud_sync.enabled:
             asyncio.create_task(self.cloud_sync.start())
 
+        # Apply saved custom Discord RPC / status
+        await self.apply_rpc()
+
         self.emit(
             "bot_ready",
             {
                 "username": str(self.user),
                 "user_id": str(self.user.id),
                 "afk_mode": self.afk_mode,
+                "rpc_config": self.rpc_manager.current_config,
                 "timestamp": datetime.now().isoformat(),
             },
         )
+
+    async def apply_rpc(self, config: dict = None) -> bool:
+        """Apply custom presence/activity and online status to Discord."""
+        try:
+            if config:
+                self.rpc_manager.save_config(config)
+            activity, status = self.rpc_manager.build_presence()
+            await self.change_presence(activity=activity, status=status)
+            cfg = self.rpc_manager.current_config
+            print(f"[RPC] 🎮 Presence updated: {cfg.get('activity_type', 'none')} | {cfg.get('name', 'Custom')} (Status: {status})")
+            self.emit("rpc_update", cfg)
+            return True
+        except Exception as e:
+            print(f"[RPC] Failed to update presence: {e}")
+            return False
 
     async def on_message(self, message: discord.Message):
         # Ignore own messages
