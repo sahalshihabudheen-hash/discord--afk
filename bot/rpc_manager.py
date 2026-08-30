@@ -11,14 +11,14 @@ from typing import Optional, Tuple, Dict, Any
 import discord
 
 
-DEFAULT_APP_ID = 1107567406834167859
+DEFAULT_APP_ID = 1543503530659418112
 
 DEFAULT_ICONS = {
-    "competing": "https://cdn-icons-png.flaticon.com/512/3112/3112946.png",  # Trophy
-    "playing": "https://cdn-icons-png.flaticon.com/512/3238/3238016.png",    # Assignment/Notebook
-    "listening": "https://cdn-icons-png.flaticon.com/512/3845/3845876.png",  # Headphones/Music
-    "watching": "https://cdn-icons-png.flaticon.com/512/3074/3074767.png",   # Monitor/Study
-    "streaming": "https://cdn-icons-png.flaticon.com/512/5968/5968819.png",  # Twitch/Live
+    "competing": "trophy",
+    "playing": "assignment",
+    "listening": "music",
+    "watching": "study",
+    "streaming": "gaming",
 }
 
 DEFAULT_RPC_CONFIG = {
@@ -29,7 +29,7 @@ DEFAULT_RPC_CONFIG = {
     "state": "Final Polish",
     "emoji": "📝",
     "application_id": DEFAULT_APP_ID,
-    "large_image": "https://cdn-icons-png.flaticon.com/512/3238/3238016.png",
+    "large_image": "assignment",
     "large_text": "Writing Assignment",
     "small_image": "",
     "small_text": "",
