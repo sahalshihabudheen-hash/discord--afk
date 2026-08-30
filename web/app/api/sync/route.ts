@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
-import { getGlobalState, updateGlobalState, getPendingMessages, clearPendingMessages } from "@/lib/store";
+import { getGlobalState, updateGlobalState, getPendingMessages, clearPendingMessages, getPendingRpc, clearPendingRpc } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
     const data = await req.json();
+    const pendingRpc = getPendingRpc();
+    if (pendingRpc) {
+      clearPendingRpc();
+    }
     
     // Update state from local PC bot
     updateGlobalState({
@@ -16,7 +20,7 @@ export async function POST(req: Request) {
         total_ai_replies: 0,
       },
       conversations: data.conversations || [],
-      ...(data.rpc_config ? { rpc_config: data.rpc_config } : {}),
+      ...(!pendingRpc && data.rpc_config ? { rpc_config: data.rpc_config } : {}),
     });
 
     const currentState = getGlobalState();
@@ -38,11 +42,11 @@ export async function POST(req: Request) {
       }
     });
 
-    // Return the cloud's desired AFK mode, RPC config & chat modes back to the bot
+    // Return the cloud's desired AFK mode, pending RPC config & chat modes back to the bot
     return NextResponse.json({
       success: true,
       afk_mode: currentState.afk_mode,
-      rpc_config: currentState.rpc_config,
+      rpc_config: pendingRpc || null,
       disabled_convo_ids: disabledConvoIds,
       chat_modes: chatModes,
       timestamp: new Date().toISOString(),

@@ -102,6 +102,7 @@ export interface PendingMessage {
 declare global {
   var __GLOBAL_BOT_STATE: DashboardState | undefined;
   var __PENDING_MESSAGES: PendingMessage[] | undefined;
+  var __PENDING_RPC: RpcConfig | null | undefined;
 }
 
 export function getPendingMessages(): PendingMessage[] {
@@ -118,6 +119,18 @@ export function addPendingMessage(msg: PendingMessage) {
 
 export function clearPendingMessages() {
   global.__PENDING_MESSAGES = [];
+}
+
+export function getPendingRpc(): RpcConfig | null | undefined {
+  return global.__PENDING_RPC;
+}
+
+export function setPendingRpc(rpc: RpcConfig) {
+  global.__PENDING_RPC = rpc;
+}
+
+export function clearPendingRpc() {
+  global.__PENDING_RPC = null;
 }
 
 const defaultRpcConfig: RpcConfig = {

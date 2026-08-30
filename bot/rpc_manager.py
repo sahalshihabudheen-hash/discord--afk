@@ -92,8 +92,10 @@ class RPCManager:
         if show_timestamp:
             start_t = cfg.get("start_time")
             if not start_t:
-                start_t = int(time.time())
+                start_t = int(time.time() * 1000)
                 cfg["start_time"] = start_t
+            elif int(start_t) < 10000000000:
+                start_t = int(start_t) * 1000
             timestamps = {"start": int(start_t)}
 
         if act_type == "none" or (not name and act_type != "custom"):
