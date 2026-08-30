@@ -49,6 +49,7 @@ export interface RpcConfig {
   enabled: boolean;
   activity_type: string;
   name: string;
+  application_id?: string | number;
   details?: string;
   state?: string;
   emoji?: string;
@@ -1696,6 +1697,46 @@ export default function Dashboard() {
                     />
                   </div>
                 )}
+
+                {/* Discord Application ID & Asset Key */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <label style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: "500" }}>Application ID (Client ID)</label>
+                    <input
+                      type="text"
+                      value={rpcForm.application_id || ""}
+                      onChange={(e) => setRpcForm((p) => ({ ...p, application_id: e.target.value }))}
+                      placeholder="e.g. 1107567406834167859"
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        backgroundColor: "var(--bg-base)",
+                        border: "1px solid var(--border-subtle)",
+                        color: "var(--text-primary)",
+                        fontSize: "12px",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <label style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: "500" }}>Asset Key / Image URL</label>
+                    <input
+                      type="text"
+                      value={rpcForm.large_image || ""}
+                      onChange={(e) => setRpcForm((p) => ({ ...p, large_image: e.target.value }))}
+                      placeholder="e.g. logo, trophy, or URL"
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        backgroundColor: "var(--bg-base)",
+                        border: "1px solid var(--border-subtle)",
+                        color: "var(--text-primary)",
+                        fontSize: "12px",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+                </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
                   <input

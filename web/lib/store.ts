@@ -70,6 +70,7 @@ export interface RpcConfig {
   enabled: boolean;
   activity_type: "playing" | "listening" | "watching" | "streaming" | "competing" | "custom" | "none" | string;
   name: string;
+  application_id?: string | number;
   details?: string;
   state?: string;
   emoji?: string;
