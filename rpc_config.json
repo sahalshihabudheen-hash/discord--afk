@@ -2,8 +2,8 @@
   "enabled": true,
   "activity_type": "competing",
   "name": "Writing assignment",
-  "details": "8 pages",
-  "state": "AI REPLAY ONLY",
+  "details": "Chapter 4 Draft",
+  "state": "Final Polish",
   "emoji": "📝",
   "application_id": "1543503530659418112",
   "large_image": "assignment",
@@ -13,5 +13,5 @@
   "stream_url": "",
   "status": "dnd",
   "show_timestamp": true,
-  "start_time": null
+  "start_time": 1788073868
 }

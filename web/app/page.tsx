@@ -971,7 +971,7 @@ export default function Dashboard() {
               </div>
 
               {/* Message History */}
-              <div ref={chatContainerRef} style={{ flex: 1, overflowY: "auto", padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div ref={chatContainerRef} style={{ flex: 1, overflowY: "auto", padding: "24px", display: "flex", flexDirection: "column", gap: "8px", justifyContent: "flex-start" }}>
                 {selectedConvo.messages.map((msg, index) => {
                   const isAssistant = msg.role === "assistant";
                   const isBotGif = msg.content?.startsWith("[GIF:");
