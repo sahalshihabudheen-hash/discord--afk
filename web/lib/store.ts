@@ -63,7 +63,7 @@ export interface Conversation {
   channel_type?: string;
   messages: Message[];
   ai_disabled?: boolean;
-  chat_mode?: "human" | "ai" | "extreme_ai";
+  chat_mode?: "human" | "ai" | "extreme_ai" | "romance";
 }
 
 export interface RpcConfig {
@@ -229,7 +229,7 @@ export function toggleAI(userId: string, disabled?: boolean): boolean {
   return false;
 }
 
-export function setChatMode(userId: string, mode: "human" | "ai" | "extreme_ai"): string {
+export function setChatMode(userId: string, mode: "human" | "ai" | "extreme_ai" | "romance"): string {
   const current = getGlobalState();
   const convo = current.conversations.find((c) => c.user_id === userId);
   if (convo) {

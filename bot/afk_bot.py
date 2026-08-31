@@ -393,6 +393,8 @@ class AFKBot(discord.Client):
                         caption = f"🚀 Generated your custom AI artwork! 🎨✨\n**Prompt:** *{image_prompt}*\nRendered with FLUX AI! 🔥"
                     elif chat_mode == "ai":
                         caption = f"Here's the image you requested! 🎨✨ ({image_prompt})"
+                    elif chat_mode == "romance":
+                        caption = f"Made this lovely artwork specially for you, sweetie ❤️✨\n*{image_prompt}* 🌹💫"
                     else:
                         caption = random.choice(["here bro", "made this for u", "there u go", "done bro"])
 
@@ -451,6 +453,8 @@ class AFKBot(discord.Client):
                     reply = f"Hey {user_name}! 🤖 I'm on it! {self.owner_name} is away right now but your message is logged! 💬✨"
                 elif chat_mode == "ai":
                     reply = f"Hey {user_name}! {self.owner_name} is AFK right now, but I'll make sure he sees this 🙌"
+                elif chat_mode == "romance":
+                    reply = f"Aww {user_name}, I'm right here with you~ sending you sweet hugs and kisses! 💖💋"
                 else:
                     reply = f"yo {user_name}! been kinda tied up rn, hit me up later"
 

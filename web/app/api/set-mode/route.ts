@@ -10,7 +10,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Missing user_id" }, { status: 400 });
     }
 
-    const validModes = ["human", "ai", "extreme_ai"];
+    const validModes = ["human", "ai", "extreme_ai", "romance"];
     const targetMode = validModes.includes(mode) ? mode : "human";
 
     const updatedMode = setChatMode(user_id, targetMode as any);

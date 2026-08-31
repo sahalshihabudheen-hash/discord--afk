@@ -42,7 +42,7 @@ interface Conversation {
   channel_type?: string;
   messages: Message[];
   ai_disabled?: boolean;
-  chat_mode?: "human" | "ai" | "extreme_ai";
+  chat_mode?: "human" | "ai" | "extreme_ai" | "romance";
 }
 
 export interface RpcConfig {
@@ -112,7 +112,7 @@ export default function Dashboard() {
   const prevConvoIdRef = useRef<string | null>(null);
   const prevMsgCountRef = useRef<number>(0);
 
-  const handleSetMode = async (mode: "human" | "ai" | "extreme_ai") => {
+  const handleSetMode = async (mode: "human" | "ai" | "extreme_ai" | "romance") => {
     if (isSettingMode || !selectedUserId || !state) return;
     setIsSettingMode(true);
     try {
@@ -744,6 +744,8 @@ export default function Dashboard() {
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{convo.user_name}</span>
                           {convo.ai_disabled ? (
                             <span style={{ fontSize: "10px", color: "var(--accent-rose)", fontWeight: "700", backgroundColor: "rgba(239, 68, 68, 0.15)", padding: "1px 5px", borderRadius: "4px", flexShrink: 0 }}>PAUSED</span>
+                          ) : convo.chat_mode === "romance" ? (
+                            <span style={{ fontSize: "10px", color: "#fb7185", fontWeight: "700", background: "linear-gradient(135deg, rgba(244, 63, 94, 0.2), rgba(236, 72, 153, 0.2))", padding: "1px 5px", borderRadius: "4px", flexShrink: 0, border: "1px solid rgba(244, 63, 94, 0.4)", boxShadow: "0 0 6px rgba(244, 63, 94, 0.3)" }}>💖 ROMANCE</span>
                           ) : convo.chat_mode === "extreme_ai" ? (
                             <span style={{ fontSize: "10px", color: "#f59e0b", fontWeight: "700", backgroundColor: "rgba(245, 158, 11, 0.15)", padding: "1px 5px", borderRadius: "4px", flexShrink: 0 }}>🔥 EXTREME</span>
                           ) : convo.chat_mode === "ai" ? (
@@ -911,6 +913,25 @@ export default function Dashboard() {
                       }}
                     >
                       🔥 Extreme AI
+                    </button>
+                    <button
+                      onClick={() => handleSetMode("romance")}
+                      disabled={isSettingMode}
+                      title="Romance Mode: Confident flirty rizz, hard-to-get energy, kisses, sweet nicknames — she's already fallen 😏💋"
+                      style={{
+                        padding: "5px 10px",
+                        borderRadius: "7px",
+                        border: selectedConvo.chat_mode === "romance" ? "1px solid rgba(244, 63, 94, 0.45)" : "none",
+                        backgroundColor: selectedConvo.chat_mode === "romance" ? "rgba(244, 63, 94, 0.2)" : "transparent",
+                        color: selectedConvo.chat_mode === "romance" ? "#fb7185" : "var(--text-muted)",
+                        fontWeight: selectedConvo.chat_mode === "romance" ? "700" : "500",
+                        fontSize: "12px",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                        boxShadow: selectedConvo.chat_mode === "romance" ? "0 0 10px rgba(244, 63, 94, 0.35)" : "none",
+                      }}
+                    >
+                      💖 Romance
                     </button>
                   </div>
 

@@ -331,8 +331,169 @@
     .chat-header-name { font-weight: 600; font-size: 15px; }
     .chat-header-sub { font-size: 11px; color: var(--text-2); }
 
-    .chat-type-badge {
+    .chat-header-actions {
       margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .romance-toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid rgba(244, 63, 94, 0.35);
+      background: rgba(244, 63, 94, 0.12);
+      color: #fda4af;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .romance-toggle-btn:hover {
+      background: rgba(244, 63, 94, 0.25);
+      border-color: #f43f5e;
+      color: #fff;
+      box-shadow: 0 0 14px rgba(244, 63, 94, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .romance-toggle-btn.active {
+      background: linear-gradient(135deg, #f43f5e, #ec4899);
+      border-color: #f43f5e;
+      color: #fff;
+      box-shadow: 0 0 16px rgba(244, 63, 94, 0.6);
+      animation: romance-glow 2s infinite ease-in-out;
+    }
+
+    @keyframes romance-glow {
+      0%, 100% { box-shadow: 0 0 12px rgba(244, 63, 94, 0.45); }
+      50% { box-shadow: 0 0 22px rgba(236, 72, 153, 0.8); }
+    }
+
+    .mode-selector-group {
+      display: flex;
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .mode-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-2);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 5px 9px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .mode-btn:hover {
+      background: var(--bg-2);
+      color: var(--text-1);
+    }
+
+    .mode-btn.active {
+      background: var(--bg-1);
+      color: var(--accent);
+      font-weight: 700;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+
+    .mode-btn.mode-romance-btn.active {
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.25), rgba(236, 72, 153, 0.3));
+      color: #fb7185;
+      border: 1px solid rgba(244, 63, 94, 0.4);
+    }
+
+    .ai-pause-btn {
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .ai-pause-btn:hover {
+      background: var(--bg-2);
+      color: var(--text-1);
+    }
+
+    .ai-pause-btn.paused {
+      background: rgba(248, 113, 113, 0.15);
+      border-color: rgba(248, 113, 113, 0.4);
+      color: var(--red);
+    }
+
+    /* Badges */
+    .badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+      flex-shrink: 0;
+    }
+
+    .badge-paused {
+      background: rgba(248, 113, 113, 0.18);
+      color: var(--red);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+    }
+
+    .badge-romance {
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.25), rgba(236, 72, 153, 0.25));
+      color: #fb7185;
+      border: 1px solid rgba(244, 63, 94, 0.45);
+      box-shadow: 0 0 8px rgba(244, 63, 94, 0.25);
+    }
+
+    .badge-extreme {
+      background: rgba(251, 191, 36, 0.18);
+      color: var(--yellow);
+      border: 1px solid rgba(251, 191, 36, 0.35);
+    }
+
+    .badge-ai {
+      background: rgba(79, 142, 247, 0.18);
+      color: var(--accent);
+      border: 1px solid rgba(79, 142, 247, 0.35);
+    }
+
+    .badge-human {
+      background: rgba(52, 211, 153, 0.15);
+      color: var(--green);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+    }
+
+    .romance-pulse-icon {
+      animation: heartbeat 1.5s ease-in-out infinite;
+      display: inline-block;
+      font-size: 14px;
+    }
+
+    @keyframes heartbeat {
+      0%, 100% { transform: scale(1); }
+      15% { transform: scale(1.25); }
+      30% { transform: scale(1); }
+      45% { transform: scale(1.15); }
+      60% { transform: scale(1); }
+    }
+
+    .chat-type-badge {
       font-size: 10px;
       font-weight: 600;
       padding: 3px 8px;
@@ -1280,6 +1441,7 @@
   }
 
   // ── Sidebar ───────────────────────────────────────────────
+  // ── Sidebar ───────────────────────────────────────────────
   function renderConvoList() {
     const list = document.getElementById('convoList');
     const sorted = Object.values(convos).sort(
@@ -1295,11 +1457,28 @@
       const u = unread[c.user_id] || 0;
       const active = activeUid === c.user_id ? 'active' : '';
       const preview = esc(c.last_message);
+      const mode = c.chat_mode || 'human';
+      let modeBadge = '';
+      if (c.ai_disabled) {
+        modeBadge = '<span class="badge badge-paused">PAUSED</span>';
+      } else if (mode === 'romance') {
+        modeBadge = '<span class="badge badge-romance">💖 ROMANCE</span>';
+      } else if (mode === 'extreme_ai') {
+        modeBadge = '<span class="badge badge-extreme">🔥 EXTREME</span>';
+      } else if (mode === 'ai') {
+        modeBadge = '<span class="badge badge-ai">🤖 AI</span>';
+      } else {
+        modeBadge = '<span class="badge badge-human">🧑 HUMAN</span>';
+      }
+
       return `
         <div class="convo-item ${active}" data-uid="${c.user_id}" onclick="openConvo('${c.user_id}')">
           <div class="convo-av">${avEl(c)}</div>
           <div class="convo-info">
-            <div class="convo-name">${esc(c.user_name)}</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:2px;">
+              <span class="convo-name">${esc(c.user_name)}</span>
+              ${modeBadge}
+            </div>
             <div class="convo-preview">${preview}</div>
           </div>
           ${u ? `<div class="unread-badge">${u}</div>` : ''}
@@ -1318,15 +1497,42 @@
 
     const chatArea = document.getElementById('chatArea');
     const msgs = (c.messages || []).map(renderMsg).join('');
+    const mode = c.chat_mode || 'human';
+    const isRomance = mode === 'romance';
 
     chatArea.innerHTML = `
       <div class="chat-header">
         <div class="chat-header-av">${avEl(c)}</div>
         <div>
-          <div class="chat-header-name">${esc(c.user_name)}</div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div class="chat-header-name">${esc(c.user_name)}</div>
+            ${isRomance ? '<span class="romance-pulse-icon" title="Romance Mode Active!">💖</span>' : ''}
+          </div>
           <div class="chat-header-sub">${c.total_messages || 0} messages · ${c.ai_replies || 0} AI replies</div>
         </div>
-        <div class="chat-type-badge">${esc(c.channel_type || 'DM')}</div>
+
+        <div class="chat-header-actions">
+          <!-- 1-Click Romance Toggle -->
+          <button class="romance-toggle-btn ${isRomance ? 'active' : ''}" onclick="toggleRomanceMode('${c.user_id}')" title="Toggle Extreme Romantic AI personality with kisses and sweet compliments">
+            <span>💖</span>
+            <span>Romance Mode: ${isRomance ? 'ON 💋' : 'OFF'}</span>
+          </button>
+
+          <!-- Mode Pills -->
+          <div class="mode-selector-group">
+            <button class="mode-btn ${mode === 'human' ? 'active' : ''}" onclick="changeConvoMode('${c.user_id}', 'human')" title="Sahal's real texting style (casual, lowercase, no emojis)">🧑 Human</button>
+            <button class="mode-btn ${mode === 'ai' ? 'active' : ''}" onclick="changeConvoMode('${c.user_id}', 'ai')" title="Helpful AI Bot">🤖 AI</button>
+            <button class="mode-btn ${mode === 'extreme_ai' ? 'active' : ''}" onclick="changeConvoMode('${c.user_id}', 'extreme_ai')" title="Extreme AI Assistant">🔥 Extreme</button>
+            <button class="mode-btn mode-romance-btn ${mode === 'romance' ? 'active' : ''}" onclick="changeConvoMode('${c.user_id}', 'romance')" title="Extreme Romance Mode (kisses, flirty, pet names, romance)">💖 Romance</button>
+          </div>
+
+          <!-- AI Pause Toggle -->
+          <button class="ai-pause-btn ${c.ai_disabled ? 'paused' : ''}" onclick="toggleConvoAI('${c.user_id}')" title="${c.ai_disabled ? 'Resume AI replies' : 'Pause AI replies for this conversation'}">
+            ${c.ai_disabled ? '⏸️ AI Paused' : '▶️ AI Active'}
+          </button>
+
+          <div class="chat-type-badge">${esc(c.channel_type || 'DM')}</div>
+        </div>
       </div>
       <div class="messages" id="msgList">${msgs}</div>
       <div class="chat-input-bar">
@@ -1334,6 +1540,60 @@
         <button id="sendMsgBtn" onclick="sendManualMsg()">Send</button>
       </div>`;
     scrollBottom();
+  }
+
+  async function changeConvoMode(uid, newMode) {
+    if (!uid) return;
+    try {
+      const res = await fetch('/api/set-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: uid, mode: newMode }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (convos[uid]) convos[uid].chat_mode = newMode;
+        renderConvoList();
+        if (activeUid === uid) openConvo(uid);
+        const modeNames = { human: '🧑 Human', ai: '🤖 AI', extreme_ai: '🔥 Extreme AI', romance: '💖 Romance' };
+        toast('Mode Updated', `Switched to ${modeNames[newMode] || newMode} mode!`);
+      } else {
+        toast('❌ Mode Update Failed', data.error || 'Failed to update mode', true);
+      }
+    } catch (e) {
+      console.error(e);
+      toast('❌ Mode Update Failed', 'Network error', true);
+    }
+  }
+
+  async function toggleRomanceMode(uid) {
+    if (!uid || !convos[uid]) return;
+    const currentMode = convos[uid].chat_mode || 'human';
+    const targetMode = currentMode === 'romance' ? 'human' : 'romance';
+    await changeConvoMode(uid, targetMode);
+  }
+
+  async function toggleConvoAI(uid) {
+    if (!uid) return;
+    try {
+      const res = await fetch('/api/toggle-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: uid }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (convos[uid]) convos[uid].ai_disabled = data.ai_disabled;
+        renderConvoList();
+        if (activeUid === uid) openConvo(uid);
+        toast(data.ai_disabled ? '⏸️ AI Paused' : '▶️ AI Resumed', data.ai_disabled ? 'AI will not reply to this user' : 'AI replies active');
+      } else {
+        toast('❌ Failed', data.error || 'Failed to toggle AI', true);
+      }
+    } catch (e) {
+      console.error(e);
+      toast('❌ Failed', 'Network error', true);
+    }
   }
 
   function appendMsg(data) {

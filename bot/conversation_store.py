@@ -225,14 +225,14 @@ class ConversationStore:
             self.save_to_file()
 
     def get_chat_mode(self, user_id: str) -> str:
-        """Return chat mode: 'human', 'ai', or 'extreme_ai'. Defaults to 'human'."""
+        """Return chat mode: 'human', 'ai', 'extreme_ai', or 'romance'. Defaults to 'human'."""
         if user_id in self._store:
             return self._store[user_id].get("chat_mode", "human")
         return "human"
 
     def set_chat_mode(self, user_id: str, mode: str):
-        """Set chat mode for a conversation. Valid: 'human', 'ai', 'extreme_ai'."""
-        valid_modes = {"human", "ai", "extreme_ai"}
+        """Set chat mode for a conversation. Valid: 'human', 'ai', 'extreme_ai', 'romance'."""
+        valid_modes = {"human", "ai", "extreme_ai", "romance"}
         if mode not in valid_modes:
             mode = "human"
         if user_id in self._store:

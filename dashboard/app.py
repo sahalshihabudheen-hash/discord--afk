@@ -105,6 +105,27 @@ def create_app(config: dict):
         else:
             return jsonify({"success": False, "error": "Bot is not active"}), 500
 
+    @app.route("/api/set-mode", methods=["POST"])
+    def set_mode():
+        data = request.get_json() or {}
+        user_id = data.get("user_id")
+        mode = data.get("mode")
+
+        if not user_id:
+            return jsonify({"success": False, "error": "Missing user_id"}), 400
+
+        valid_modes = {"human", "ai", "extreme_ai", "romance"}
+        if mode not in valid_modes:
+            mode = "human"
+
+        if state["bot"] is not None:
+            state["bot"].store.set_chat_mode(user_id, mode)
+            state["conversations"] = state["bot"].store.get_sorted_conversations()
+            socketio.emit("conversations_update", state["conversations"])
+            return jsonify({"success": True, "chat_mode": mode})
+        else:
+            return jsonify({"success": False, "error": "Bot is not active"}), 500
+
     @app.route("/api/send-message", methods=["POST"])
     def send_message():
         data = request.get_json() or {}
