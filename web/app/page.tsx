@@ -785,7 +785,7 @@ export default function Dashboard() {
                   justifyContent: "space-between",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0, overflow: "hidden", flex: 1 }}>
                   {/* Back button */}
                   <button
                     onClick={() => setSelectedUserId(null)}
@@ -841,9 +841,9 @@ export default function Dashboard() {
                       />
                     )}
                   </div>
-                  <div>
+                  <div style={{ minWidth: 0, overflow: "hidden" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <h2 style={{ fontSize: "15px", fontWeight: "700", color: "var(--text-primary)" }}>
+                      <h2 style={{ fontSize: "15px", fontWeight: "700", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "200px" }}>
                         {selectedConvo.user_name}
                       </h2>
                       <span
@@ -855,20 +855,21 @@ export default function Dashboard() {
                           color: getStatusColor(selectedConvo.profile?.status),
                           fontWeight: "600",
                           textTransform: "capitalize",
+                          flexShrink: 0,
                         }}
                       >
                         {selectedConvo.profile?.status || "offline"}
                       </span>
                     </div>
                     {selectedConvo.profile?.custom_status && (
-                      <div style={{ fontSize: "12px", color: "var(--accent-cyan)", marginTop: "2px" }}>
+                      <div style={{ fontSize: "12px", color: "var(--accent-cyan)", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         ✨ {selectedConvo.profile.custom_status}
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", flexShrink: 0 }}>
                   {/* 3 Chat Modes Selector */}
                   <div
                     style={{
