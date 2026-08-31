@@ -628,9 +628,9 @@ export default function Dashboard() {
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         {/* Left Sidebar: Conversations */}
         <aside
-          className={selectedUserId ? "sidebar-hidden" : ""}
           style={{
             width: "320px",
+            minWidth: "320px",
             backgroundColor: "var(--bg-surface)",
             borderRight: "1px solid var(--border-subtle)",
             display: "flex",
@@ -771,7 +771,7 @@ export default function Dashboard() {
         </aside>
 
         {/* Center: Chat Stream */}
-        <main style={{ flex: 1, display: "flex", flexDirection: "column", backgroundColor: "var(--bg-base)" }}>
+        <main style={{ flex: 1, minWidth: 0, overflow: "hidden", display: "flex", flexDirection: "column", backgroundColor: "var(--bg-base)" }}>
           {selectedConvo ? (
             <>
               {/* Chat Header */}
@@ -783,29 +783,12 @@ export default function Dashboard() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
+                  gap: "16px",
+                  flexShrink: 0,
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0, overflow: "hidden", flex: 1 }}>
-                  {/* Back button */}
-                  <button
-                    onClick={() => setSelectedUserId(null)}
-                    title="Back to conversations"
-                    className="back-btn"
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "var(--text-secondary)",
-                      cursor: "pointer",
-                      fontSize: "20px",
-                      padding: "4px 8px",
-                      borderRadius: "8px",
-                      alignItems: "center",
-                      lineHeight: 1,
-                    }}
-                  >
-                    ←
-                  </button>
-                  <div style={{ position: "relative", width: "40px", height: "40px" }}>
+                  <div style={{ position: "relative", width: "40px", height: "40px", flexShrink: 0 }}>
 
                     <div
                       style={{
@@ -993,7 +976,7 @@ export default function Dashboard() {
               </div>
 
               {/* Message History */}
-              <div ref={chatContainerRef} style={{ flex: 1, overflowY: "auto", padding: "24px", display: "flex", flexDirection: "column", gap: "8px", justifyContent: "flex-start" }}>
+              <div ref={chatContainerRef} style={{ flex: 1, minWidth: 0, width: "100%", overflowY: "auto", overflowX: "hidden", padding: "24px", display: "flex", flexDirection: "column", gap: "8px", justifyContent: "flex-start" }}>
                 {selectedConvo.messages.map((msg, index) => {
                   const isAssistant = msg.role === "assistant";
                   const isBotGif = msg.content?.startsWith("[GIF:");
@@ -1038,6 +1021,7 @@ export default function Dashboard() {
                     fontSize: "14px",
                     lineHeight: "1.5",
                     wordBreak: "break-word",
+                    whiteSpace: "pre-wrap",
                   };
 
                   return (
@@ -1048,6 +1032,9 @@ export default function Dashboard() {
                         flexDirection: "column",
                         alignItems: isAssistant ? "flex-end" : "flex-start",
                         opacity: isDeleted ? 0.7 : 1,
+                        width: "100%",
+                        maxWidth: "100%",
+                        minWidth: 0,
                       }}
                     >
                       <div
@@ -1240,6 +1227,8 @@ export default function Dashboard() {
           <aside
             style={{
               width: "280px",
+              minWidth: "280px",
+              flexShrink: 0,
               backgroundColor: "var(--bg-surface)",
               borderLeft: "1px solid var(--border-subtle)",
               display: "flex",
