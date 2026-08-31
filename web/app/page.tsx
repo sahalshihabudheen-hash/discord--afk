@@ -628,6 +628,7 @@ export default function Dashboard() {
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         {/* Left Sidebar: Conversations */}
         <aside
+          className={selectedUserId ? "sidebar-hidden" : ""}
           style={{
             width: "320px",
             backgroundColor: "var(--bg-surface)",
@@ -785,7 +786,27 @@ export default function Dashboard() {
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  {/* Back button */}
+                  <button
+                    onClick={() => setSelectedUserId(null)}
+                    title="Back to conversations"
+                    className="back-btn"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--text-secondary)",
+                      cursor: "pointer",
+                      fontSize: "20px",
+                      padding: "4px 8px",
+                      borderRadius: "8px",
+                      alignItems: "center",
+                      lineHeight: 1,
+                    }}
+                  >
+                    ←
+                  </button>
                   <div style={{ position: "relative", width: "40px", height: "40px" }}>
+
                     <div
                       style={{
                         width: "100%",

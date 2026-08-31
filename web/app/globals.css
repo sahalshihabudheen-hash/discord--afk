@@ -66,3 +66,12 @@ body {
 .pulse-dot {
   animation: pulseGlow 2.2s infinite ease-in-out;
 }
+
+/* Responsive: hide sidebar when chat is open on narrow screens */
+@media (max-width: 900px) {
+  .sidebar-hidden { display: none !important; }
+  .back-btn { display: flex !important; }
+}
+@media (min-width: 901px) {
+  .back-btn { display: none !important; }
+}
