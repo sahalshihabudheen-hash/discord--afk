@@ -1129,7 +1129,7 @@ export default function Dashboard() {
                             ...bubbleBase,
                             backgroundColor: isAssistant ? "var(--bg-bubble-bot)" : "var(--bg-bubble-user)",
                             color: isAssistant ? "#34d399" : "var(--text-primary)",
-                            border: isAssistant ? "1px solid rgba(52, 211, 153, 0.2)" : "1px solid var(--border-subtle)",
+                            border: isAssistant ? "1px solid rgba(52, 211, 153, 0.4)" : "1px solid var(--border-subtle)",
                           }}>
                             {msg.content}
                           </div>
