@@ -141,6 +141,20 @@ export default function Dashboard() {
   };
 
   const RPC_PRESETS = {
+    busy: {
+      activity_type: "playing",
+      name: "BUSY",
+      details: "BUSY",
+      state: "BUSY",
+      emoji: "⛔",
+      application_id: "1543503530659418112",
+      large_image: "busy",
+      large_text: "BUSY",
+      small_image: "",
+      small_text: "",
+      status: "dnd",
+      show_timestamp: true,
+    },
     assignment: {
       activity_type: "competing",
       name: "Writing assignment",
@@ -1595,6 +1609,9 @@ export default function Dashboard() {
                     Quick Presets (1-Click)
                   </label>
                   <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    <button type="button" onClick={() => handleApplyPreset("busy")} style={{ padding: "4px 11px", borderRadius: "14px", fontSize: "11px", backgroundColor: "rgba(242, 63, 67, 0.16)", border: "1px solid rgba(242, 63, 67, 0.45)", color: "#f87171", fontWeight: "700", cursor: "pointer" }}>
+                      ⛔ Busy (DND)
+                    </button>
                     <button type="button" onClick={() => handleApplyPreset("assignment")} style={{ padding: "4px 10px", borderRadius: "14px", fontSize: "11px", backgroundColor: "var(--bg-surface-elevated)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)", cursor: "pointer" }}>
                       📝 Writing Assignment
                     </button>
@@ -1697,7 +1714,7 @@ export default function Dashboard() {
                     }}
                   />
                   <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "4px" }}>
-                    {["📝", "✍️", "🎧", "💻", "🎮", "🔥", "⚡", "📚", "☕", "🏆"].map((em) => (
+                    {["⛔", "📝", "✍️", "🎧", "💻", "🎮", "🔥", "⚡", "📚", "☕", "🏆"].map((em) => (
                       <span
                         key={em}
                         onClick={() => setRpcForm((p) => ({ ...p, emoji: em }))}
@@ -1737,6 +1754,54 @@ export default function Dashboard() {
                   </div>
                 )}
 
+                {/* Activity Logo Dropdown Selector */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: "500" }}>
+                    Select Activity Logo
+                  </label>
+                  <select
+                    value={
+                      ["busy", "dnd", "assignment", "music", "vscode", "gaming", "study", "coffee", "trophy", "fire"].includes(rpcForm.large_image?.toLowerCase() || "")
+                        ? (["dnd", "busy"].includes(rpcForm.large_image?.toLowerCase() || "") ? "busy" : rpcForm.large_image?.toLowerCase())
+                        : rpcForm.large_image ? "custom" : "none"
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "none") {
+                        setRpcForm((p) => ({ ...p, large_image: "" }));
+                      } else if (val === "custom") {
+                        if (["busy", "dnd", "assignment", "music", "vscode", "gaming", "study", "coffee", "trophy", "fire"].includes(rpcForm.large_image || "")) {
+                          setRpcForm((p) => ({ ...p, large_image: "" }));
+                        }
+                      } else {
+                        setRpcForm((p) => ({ ...p, large_image: val }));
+                      }
+                    }}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      backgroundColor: "var(--bg-base)",
+                      border: "1px solid var(--border-subtle)",
+                      color: "var(--text-primary)",
+                      fontSize: "13px",
+                      outline: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="busy">⛔ Do Not Disturb (Red DND Logo)</option>
+                    <option value="assignment">📝 Writing Assignment</option>
+                    <option value="music">🎧 Listening to Music</option>
+                    <option value="vscode">💻 Coding (VS Code)</option>
+                    <option value="gaming">🎮 Gaming (Valorant)</option>
+                    <option value="study">📚 Studying Lecture</option>
+                    <option value="coffee">☕ Coffee Break</option>
+                    <option value="trophy">🏆 Trophy / Competing</option>
+                    <option value="fire">🔥 Fire / Streak</option>
+                    <option value="none">🚫 None (Use Activity Type Icon)</option>
+                    <option value="custom">✏️ Custom Asset Key / Image URL</option>
+                  </select>
+                </div>
+
                 {/* Discord Application ID & Asset Key */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -1763,7 +1828,7 @@ export default function Dashboard() {
                       type="text"
                       value={rpcForm.large_image || ""}
                       onChange={(e) => setRpcForm((p) => ({ ...p, large_image: e.target.value }))}
-                      placeholder="e.g. logo, trophy, or URL"
+                      placeholder="e.g. busy, assignment, or URL"
                       style={{
                         padding: "8px 12px",
                         borderRadius: "8px",
@@ -1908,7 +1973,18 @@ export default function Dashboard() {
                               overflow: "hidden",
                             }}
                           >
-                            {rpcForm.large_image ? (
+                            {rpcForm.large_image?.toLowerCase() === "busy" || rpcForm.large_image?.toLowerCase() === "dnd" ? (
+                              <div style={{ width: "100%", height: "100%", borderRadius: "10px", backgroundColor: "#f23f43", display: "flex", alignItems: "center", justifyContent: "center" }} title="Do Not Disturb">
+                                <div style={{ width: "24px", height: "5.5px", backgroundColor: "#ffffff", borderRadius: "3px" }} />
+                              </div>
+                            ) : ["assignment", "music", "vscode", "gaming", "study", "coffee", "trophy", "fire"].includes(rpcForm.large_image?.toLowerCase() || "") ? (
+                              <img
+                                src={`/rpc_icons/${rpcForm.large_image.toLowerCase()}.png`}
+                                alt={rpcForm.large_image}
+                                style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "10px" }}
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                              />
+                            ) : rpcForm.large_image ? (
                               <img
                                 src={rpcForm.large_image}
                                 alt="Activity Logo"

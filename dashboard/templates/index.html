@@ -1036,6 +1036,28 @@
       font-size: 24px;
       flex-shrink: 0;
       border: 1px solid rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+    .discord-activity-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 10px;
+    }
+    .dnd-logo-badge {
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+      background-color: #f23f43;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .dnd-logo-badge .minus-bar {
+      width: 24px;
+      height: 5.5px;
+      background-color: #ffffff;
+      border-radius: 3px;
     }
     .discord-activity-text {
       display: flex;
@@ -1219,6 +1241,7 @@
         <div>
           <div class="rpc-label-title">Quick Presets (1-Click)</div>
           <div class="presets-row">
+            <button class="preset-chip" style="background:rgba(242,63,67,0.16); border-color:rgba(242,63,67,0.45); color:#f87171; font-weight:700;" onclick="applyPreset('busy')">⛔ Busy</button>
             <button class="preset-chip" onclick="applyPreset('assignment')">📝 Writing Assignment</button>
             <button class="preset-chip" onclick="applyPreset('music')">🎧 Listening to Music</button>
             <button class="preset-chip" onclick="applyPreset('vscode')">💻 Coding (VS Code)</button>
@@ -1249,6 +1272,7 @@
           <label>Custom Emoji / Symbol</label>
           <input type="text" class="rpc-input" id="rpcEmojiInput" placeholder="📝" oninput="updateRpcPreview()" />
           <div class="quick-emojis">
+            <span class="emoji-tag" onclick="pickEmoji('⛔')">⛔</span>
             <span class="emoji-tag" onclick="pickEmoji('📝')">📝</span>
             <span class="emoji-tag" onclick="pickEmoji('✍️')">✍️</span>
             <span class="emoji-tag" onclick="pickEmoji('🎧')">🎧</span>
@@ -1265,6 +1289,36 @@
         <div class="rpc-input-group" id="rpcStreamUrlGroup" style="display:none;">
           <label>Twitch / YouTube Stream URL</label>
           <input type="text" class="rpc-input" id="rpcStreamUrlInput" placeholder="https://twitch.tv/username" oninput="updateRpcPreview()" />
+        </div>
+
+        <!-- Activity Logo Dropdown Selector -->
+        <div class="rpc-input-group">
+          <label>Select Activity Logo</label>
+          <select class="rpc-input" id="rpcLogoSelect" onchange="handleLogoSelectChange(this.value)">
+            <option value="busy">⛔ Do Not Disturb (Red DND Logo)</option>
+            <option value="assignment">📝 Writing Assignment</option>
+            <option value="music">🎧 Listening to Music</option>
+            <option value="vscode">💻 Coding (VS Code)</option>
+            <option value="gaming">🎮 Gaming (Valorant)</option>
+            <option value="study">📚 Studying Lecture</option>
+            <option value="coffee">☕ Coffee Break</option>
+            <option value="trophy">🏆 Trophy / Competing</option>
+            <option value="fire">🔥 Fire / Streak</option>
+            <option value="none">🚫 None (Use Activity Type Icon)</option>
+            <option value="custom">✏️ Custom Asset Key / Image URL</option>
+          </select>
+        </div>
+
+        <!-- Discord Application ID & Asset Key -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="rpc-input-group">
+            <label style="font-size:11px;">Application ID (Client ID)</label>
+            <input type="text" class="rpc-input" id="rpcAppIdInput" placeholder="1543503530659418112" value="1543503530659418112" />
+          </div>
+          <div class="rpc-input-group">
+            <label style="font-size:11px;">Asset Key / Image URL</label>
+            <input type="text" class="rpc-input" id="rpcLargeImageInput" placeholder="busy, assignment, or URL" oninput="handleLargeImageInput(this.value)" />
+          </div>
         </div>
 
         <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
@@ -1785,12 +1839,25 @@
   let rpcElapsedSec = 252; // initial counter for preview
 
   const RPC_PRESETS = {
+    busy: {
+      activity_type: 'playing',
+      name: 'BUSY',
+      details: 'BUSY',
+      state: 'BUSY',
+      emoji: '⛔',
+      large_image: 'busy',
+      large_text: 'BUSY',
+      status: 'dnd',
+      show_timestamp: true,
+    },
     assignment: {
       activity_type: 'playing',
       name: 'Writing assignment',
       details: 'Chapter 4 Draft',
       state: 'Final Polish',
       emoji: '📝',
+      large_image: 'assignment',
+      large_text: 'Writing Assignment',
       status: 'dnd',
       show_timestamp: true,
     },
@@ -1800,6 +1867,8 @@
       details: 'Chill Study Session',
       state: 'Deep Focus',
       emoji: '🎧',
+      large_image: 'music',
+      large_text: 'Listening to Music',
       status: 'online',
       show_timestamp: true,
     },
@@ -1809,6 +1878,8 @@
       details: 'discord-control',
       state: 'Workspace 1',
       emoji: '💻',
+      large_image: 'vscode',
+      large_text: 'Visual Studio Code',
       status: 'online',
       show_timestamp: true,
     },
@@ -1818,6 +1889,8 @@
       details: 'Competitive Match',
       state: 'In Lobby (4/5)',
       emoji: '🎮',
+      large_image: 'gaming',
+      large_text: 'Valorant',
       status: 'dnd',
       show_timestamp: true,
     },
@@ -1827,6 +1900,8 @@
       details: 'Algorithms & Data Structures',
       state: 'Do Not Disturb',
       emoji: '📚',
+      large_image: 'study',
+      large_text: 'Studying',
       status: 'idle',
       show_timestamp: true,
     },
@@ -1836,6 +1911,8 @@
       details: '',
       state: 'Back in 15 mins',
       emoji: '☕',
+      large_image: 'coffee',
+      large_text: 'Coffee Break',
       status: 'idle',
       show_timestamp: false,
     },
@@ -1845,6 +1922,8 @@
       details: '',
       state: '',
       emoji: '',
+      large_image: '',
+      large_text: '',
       status: 'online',
       show_timestamp: false,
     },
@@ -1863,6 +1942,35 @@
     if (e.target === document.getElementById('rpcModalOverlay')) {
       closeRpcModal();
     }
+  }
+
+  function handleLogoSelectChange(val) {
+    const imgInput = document.getElementById('rpcLargeImageInput');
+    if (!imgInput) return;
+    if (val === 'none') {
+      imgInput.value = '';
+    } else if (val === 'custom') {
+      if (['busy', 'dnd', 'assignment', 'music', 'vscode', 'gaming', 'study', 'coffee', 'trophy', 'fire'].includes(imgInput.value.toLowerCase())) {
+        imgInput.value = '';
+      }
+    } else {
+      imgInput.value = val;
+    }
+    updateRpcPreview();
+  }
+
+  function handleLargeImageInput(val) {
+    const select = document.getElementById('rpcLogoSelect');
+    if (!select) return;
+    const v = (val || '').toLowerCase();
+    if (['busy', 'dnd', 'assignment', 'music', 'vscode', 'gaming', 'study', 'coffee', 'trophy', 'fire'].includes(v)) {
+      select.value = (v === 'dnd') ? 'busy' : v;
+    } else if (v) {
+      select.value = 'custom';
+    } else {
+      select.value = 'none';
+    }
+    updateRpcPreview();
   }
 
   function selectRpcStatus(status) {
@@ -1931,6 +2039,24 @@
     document.getElementById('rpcStreamUrlInput').value = cfg.stream_url || '';
     document.getElementById('rpcTimestampCheck').checked = cfg.show_timestamp !== false;
 
+    const img = (cfg.large_image || '').trim();
+    const imgInput = document.getElementById('rpcLargeImageInput');
+    if (imgInput) imgInput.value = img;
+    const appIdInput = document.getElementById('rpcAppIdInput');
+    if (appIdInput) appIdInput.value = cfg.application_id || '1543503530659418112';
+
+    const select = document.getElementById('rpcLogoSelect');
+    if (select) {
+      const v = img.toLowerCase();
+      if (['busy', 'dnd', 'assignment', 'music', 'vscode', 'gaming', 'study', 'coffee', 'trophy', 'fire'].includes(v)) {
+        select.value = (v === 'dnd') ? 'busy' : v;
+      } else if (v) {
+        select.value = 'custom';
+      } else {
+        select.value = 'none';
+      }
+    }
+
     updateRpcPreview();
   }
 
@@ -1940,6 +2066,7 @@
     const state = document.getElementById('rpcStateInput').value.trim();
     const emoji = document.getElementById('rpcEmojiInput').value.trim() || '📝';
     const hasTimer = document.getElementById('rpcTimestampCheck').checked;
+    const largeImg = (document.getElementById('rpcLargeImageInput')?.value || '').trim();
 
     // Status badges
     const statusClass = selectedRpcStatus || 'online';
@@ -1993,7 +2120,17 @@
       prevCustomText.textContent = state || 'Studying';
 
       prevActivityBox.style.display = 'flex';
-      prevActivityIcon.textContent = currentIcon;
+
+      // Render logo icon in preview
+      if (largeImg.toLowerCase() === 'busy' || largeImg.toLowerCase() === 'dnd') {
+        prevActivityIcon.innerHTML = '<div class="dnd-logo-badge" title="Do Not Disturb"><div class="minus-bar"></div></div>';
+      } else if (['assignment', 'music', 'vscode', 'gaming', 'study', 'coffee', 'trophy', 'fire'].includes(largeImg.toLowerCase())) {
+        prevActivityIcon.innerHTML = `<img src="/static/rpc_icons/${largeImg.toLowerCase()}.png" alt="${largeImg}" onerror="this.parentElement.textContent='${currentIcon}'" />`;
+      } else if (largeImg) {
+        prevActivityIcon.innerHTML = `<img src="${largeImg}" alt="Logo" onerror="this.parentElement.textContent='${currentIcon}'" />`;
+      } else {
+        prevActivityIcon.textContent = currentIcon;
+      }
 
       const headers = {
         playing: 'PLAYING A GAME',
@@ -2058,6 +2195,9 @@
       details: document.getElementById('rpcDetailsInput').value.trim(),
       state: document.getElementById('rpcStateInput').value.trim(),
       emoji: document.getElementById('rpcEmojiInput').value.trim() || '📝',
+      application_id: document.getElementById('rpcAppIdInput')?.value.trim() || '1543503530659418112',
+      large_image: document.getElementById('rpcLargeImageInput')?.value.trim() || '',
+      large_text: document.getElementById('rpcNameInput').value.trim() || 'Activity',
       stream_url: document.getElementById('rpcStreamUrlInput').value.trim(),
       show_timestamp: document.getElementById('rpcTimestampCheck').checked,
       start_time: Math.floor(Date.now() / 1000),

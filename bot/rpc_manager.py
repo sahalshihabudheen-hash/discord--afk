@@ -15,6 +15,8 @@ DEFAULT_APP_ID = "1543503530659418112"
 
 # Direct Discord Snowflake Asset IDs from Developer Portal API
 ASSET_NAME_TO_ID = {
+    "busy": "1543505015350497330",
+    "dnd": "1543505015350497330",
     "fire": "1543505015350497330",
     "coffee": "1543505015648292994",
     "study": "1543505015652622386",
