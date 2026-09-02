@@ -85,6 +85,8 @@ export default function Dashboard() {
   const [showProfileCard, setShowProfileCard] = useState(true);
   const [inputText, setInputText] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [aifyInputText, setAifyInputText] = useState("");
+  const [isAifying, setIsAifying] = useState(false);
   const [isTogglingAI, setIsTogglingAI] = useState(false);
   const [isSettingMode, setIsSettingMode] = useState(false);
 
@@ -352,6 +354,42 @@ export default function Dashboard() {
       alert("Failed to send message due to a network error.");
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleAifyMessage = async (sendImmediately = true) => {
+    if (!aifyInputText.trim() || !selectedUserId || isAifying) return;
+    setIsAifying(true);
+    try {
+      const selectedConvo = state?.conversations.find((c) => c.user_id === selectedUserId);
+      const res = await fetch("/api/aify-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: selectedUserId,
+          prompt: aifyInputText.trim(),
+          send: sendImmediately,
+          chat_mode: selectedConvo?.chat_mode || "human",
+          user_name: selectedConvo?.user_name || "Friend",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (sendImmediately) {
+          setAifyInputText("");
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+          fetchState();
+        } else {
+          setInputText(data.aified_content || "");
+        }
+      } else {
+        alert(`Failed to AI-fy message: ${data.error || "Unknown error"}`);
+      }
+    } catch (e) {
+      console.error("AI-fy error:", e);
+      alert("Failed to AI-fy message due to a network error.");
+    } finally {
+      setIsAifying(false);
     }
   };
 
@@ -1176,58 +1214,227 @@ export default function Dashboard() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Chat Input Bar */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: "10px",
-                  padding: "12px 24px",
-                  backgroundColor: "var(--bg-surface)",
-                  borderTop: "1px solid var(--border-subtle)",
-                  flexShrink: 0,
-                }}
-              >
-                <input
-                  type="text"
-                  placeholder="Type a message manually..."
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleSendMessage();
-                    }
-                  }}
-                  disabled={isSending}
-                  style={{
-                    flex: 1,
-                    padding: "10px 14px",
-                    borderRadius: "8px",
-                    backgroundColor: "var(--bg-base)",
-                    border: "1px solid var(--border-subtle)",
-                    color: "var(--text-primary)",
-                    fontSize: "13.5px",
-                    outline: "none",
-                  }}
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={isSending || !inputText.trim()}
-                  style={{
-                    backgroundColor: "var(--accent-emerald)",
-                    color: "#000",
-                    border: "none",
-                    borderRadius: "8px",
-                    padding: "0 20px",
-                    fontWeight: "700",
-                    fontSize: "13.5px",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                    opacity: isSending || !inputText.trim() ? 0.6 : 1,
-                  }}
-                >
-                  {isSending ? "Sending..." : "Send"}
-                </button>
-              </div>
+              {/* Dual Composer: AI-fy Area + Manual Send */}
+              {(() => {
+                const currentMode = selectedConvo.chat_mode || "human";
+                const modeLabels: Record<string, { label: string; icon: string; desc: string }> = {
+                  human: { label: "Human", icon: "🧑", desc: "zero emojis, lowercase, casual slang" },
+                  ai: { label: "AI", icon: "🤖", desc: "helpful, 1-2 emojis, direct" },
+                  extreme_ai: { label: "Extreme AI", icon: "🔥", desc: "high energy, expressive emojis" },
+                  romance: { label: "Romance", icon: "💖", desc: "sweet, charming, rizz & kisses" },
+                };
+                const activeModeInfo = modeLabels[currentMode] || modeLabels.human;
+
+                return (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      backgroundColor: "var(--bg-surface)",
+                      borderTop: "1px solid var(--border-subtle)",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {/* ── 1. AI-fy Message Area ── */}
+                    <div
+                      style={{
+                        padding: "10px 24px 8px",
+                        background: "linear-gradient(180deg, rgba(139, 92, 246, 0.08) 0%, rgba(99, 102, 241, 0.02) 100%)",
+                        borderBottom: "1px solid rgba(139, 92, 246, 0.15)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                      }}
+                    >
+                      {/* Mode & Status Banner */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: "600", color: "#c084fc" }}>
+                          <span>✨ AI-fy Message</span>
+                          <span style={{ color: "var(--text-muted)", fontSize: "11px", fontWeight: "400" }}>• Rephrases your draft into bot style</span>
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          {/* Mode Badge */}
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              fontWeight: "600",
+                              padding: "2px 8px",
+                              borderRadius: "12px",
+                              backgroundColor: "rgba(139, 92, 246, 0.15)",
+                              color: "#d8b4fe",
+                              border: "1px solid rgba(139, 92, 246, 0.25)",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                            title={activeModeInfo.desc}
+                          >
+                            <span>{activeModeInfo.icon}</span>
+                            <span>Mode: {activeModeInfo.label}</span>
+                          </span>
+
+                          {/* Always Active Badge */}
+                          <span
+                            style={{
+                              fontSize: "10.5px",
+                              fontWeight: "500",
+                              padding: "2px 7px",
+                              borderRadius: "12px",
+                              backgroundColor: selectedConvo.ai_disabled ? "rgba(245, 158, 11, 0.12)" : "rgba(16, 185, 129, 0.12)",
+                              color: selectedConvo.ai_disabled ? "#fbbf24" : "var(--accent-emerald)",
+                              border: selectedConvo.ai_disabled ? "1px solid rgba(245, 158, 11, 0.25)" : "1px solid rgba(16, 185, 129, 0.25)",
+                            }}
+                            title="AI-fy works anytime, whether auto-replies are paused or active"
+                          >
+                            ⚡ Active {selectedConvo.ai_disabled ? "(AI Paused)" : "(AI On)"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Input and Buttons Row */}
+                      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                        <input
+                          type="text"
+                          placeholder={`Type what you want to say... (AI will rephrase in ${activeModeInfo.label} style)`}
+                          value={aifyInputText}
+                          onChange={(e) => setAifyInputText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              handleAifyMessage(true);
+                            }
+                          }}
+                          disabled={isAifying}
+                          style={{
+                            flex: 1,
+                            padding: "10px 14px",
+                            borderRadius: "8px",
+                            backgroundColor: "rgba(15, 18, 28, 0.8)",
+                            border: "1px solid rgba(139, 92, 246, 0.3)",
+                            color: "var(--text-primary)",
+                            fontSize: "13.5px",
+                            outline: "none",
+                            transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+                          }}
+                        />
+
+                        {/* AI-fy & Send Primary Button */}
+                        <button
+                          onClick={() => handleAifyMessage(true)}
+                          disabled={isAifying || !aifyInputText.trim()}
+                          title="AI-fy your message and send it immediately to Discord"
+                          style={{
+                            background: "linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "8px",
+                            padding: "0 18px",
+                            height: "38px",
+                            fontWeight: "700",
+                            fontSize: "13px",
+                            cursor: isAifying || !aifyInputText.trim() ? "not-allowed" : "pointer",
+                            transition: "all 0.2s ease",
+                            opacity: isAifying || !aifyInputText.trim() ? 0.6 : 1,
+                            whiteSpace: "nowrap",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            boxShadow: "0 2px 8px rgba(139, 92, 246, 0.25)",
+                          }}
+                        >
+                          {isAifying ? (
+                            <>
+                              <span style={{ display: "inline-block" }}>⏳</span>
+                              <span>AI-fying & Sending...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>✨</span>
+                              <span>AI-fy & Send</span>
+                            </>
+                          )}
+                        </button>
+
+                        {/* AI-fy to Box Preview Button */}
+                        <button
+                          onClick={() => handleAifyMessage(false)}
+                          disabled={isAifying || !aifyInputText.trim()}
+                          title="Rephrase with AI and put into manual box below so you can inspect/edit before sending"
+                          style={{
+                            backgroundColor: "rgba(255, 255, 255, 0.05)",
+                            color: "#c084fc",
+                            border: "1px solid rgba(139, 92, 246, 0.3)",
+                            borderRadius: "8px",
+                            padding: "0 14px",
+                            height: "38px",
+                            fontWeight: "600",
+                            fontSize: "12.5px",
+                            cursor: isAifying || !aifyInputText.trim() ? "not-allowed" : "pointer",
+                            transition: "all 0.2s ease",
+                            opacity: isAifying || !aifyInputText.trim() ? 0.6 : 1,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          🪄 To Box
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* ── 2. Manual Send Bar ── */}
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "10px",
+                        padding: "10px 24px",
+                        alignItems: "center",
+                      }}
+                    >
+                      <input
+                        type="text"
+                        placeholder="Type a message manually (exact text)..."
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleSendMessage();
+                          }
+                        }}
+                        disabled={isSending}
+                        style={{
+                          flex: 1,
+                          padding: "10px 14px",
+                          borderRadius: "8px",
+                          backgroundColor: "var(--bg-base)",
+                          border: "1px solid var(--border-subtle)",
+                          color: "var(--text-primary)",
+                          fontSize: "13.5px",
+                          outline: "none",
+                        }}
+                      />
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={isSending || !inputText.trim()}
+                        style={{
+                          backgroundColor: "var(--accent-emerald)",
+                          color: "#000",
+                          border: "none",
+                          borderRadius: "8px",
+                          padding: "0 20px",
+                          height: "38px",
+                          fontWeight: "700",
+                          fontSize: "13.5px",
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                          opacity: isSending || !inputText.trim() ? 0.6 : 1,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {isSending ? "Sending..." : "Send"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
             </>
           ) : (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: "14px" }}>

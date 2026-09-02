@@ -151,6 +151,33 @@ class AFKBot(discord.Client):
             print(f"[Manual Send] Failed to send message: {e}")
             return False
 
+    async def aify_and_process_message(self, user_id: str, prompt: str, should_send: bool = True) -> dict:
+        """AI-fy a user-typed draft/intent into persona style and optionally send it.
+        Works regardless of whether AI auto-replies or AFK mode are turned ON or OFF."""
+        try:
+            convo = self.store.get_conversation(user_id)
+            user_name = convo.get("user_name") if convo else "Friend"
+            chat_mode = self.store.get_chat_mode(user_id)
+            history = self.store.get_history(user_id)
+
+            aified_text = await self.groq.aify_message(
+                user_intent=prompt,
+                user_name=user_name,
+                chat_mode=chat_mode,
+                history=history,
+            )
+            if not aified_text:
+                aified_text = prompt
+
+            if should_send:
+                success = await self.send_manual_message(user_id, aified_text)
+                return {"success": success, "aified_content": aified_text}
+            else:
+                return {"success": True, "aified_content": aified_text}
+        except Exception as e:
+            print(f"[AI-fy Send] Failed: {e}")
+            return {"success": False, "error": str(e)}
+
     # ─── Discord events ──────────────────────────────────────────────
 
     async def on_ready(self):

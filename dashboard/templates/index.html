@@ -561,6 +561,93 @@
       cursor: not-allowed;
     }
 
+    /* AI-fy Composer Styles */
+    .chat-composer-wrap {
+      display: flex;
+      flex-direction: column;
+      border-top: 1px solid var(--border);
+      background: var(--bg-1);
+      flex-shrink: 0;
+    }
+
+    .chat-aify-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 10px 20px 8px;
+      background: linear-gradient(180deg, rgba(139, 92, 246, 0.08) 0%, rgba(99, 102, 241, 0.02) 100%);
+      border-bottom: 1px solid rgba(139, 92, 246, 0.15);
+    }
+
+    .chat-aify-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+    }
+
+    .chat-aify-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .chat-aify-input {
+      flex: 1;
+      background: var(--bg-2);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      border-radius: var(--r);
+      padding: 9px 14px;
+      color: var(--text-1);
+      font-size: 13.5px;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+
+    .chat-aify-input:focus {
+      border-color: #a855f7;
+    }
+
+    .aify-send-btn {
+      background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
+      color: #fff !important;
+      border: none !important;
+      border-radius: var(--r);
+      padding: 0 16px;
+      height: 36px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(139, 92, 246, 0.25);
+    }
+
+    .aify-send-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .aify-preview-btn {
+      background: rgba(255, 255, 255, 0.05) !important;
+      color: #c084fc !important;
+      border: 1px solid rgba(139, 92, 246, 0.3) !important;
+      border-radius: var(--r);
+      padding: 0 12px;
+      height: 36px;
+      font-weight: 600;
+      font-size: 12.5px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .aify-preview-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
     .messages::-webkit-scrollbar { width: 4px; }
     .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
@@ -1589,9 +1676,35 @@
         </div>
       </div>
       <div class="messages" id="msgList">${msgs}</div>
-      <div class="chat-input-bar">
-        <input type="text" id="manualMsgInput" placeholder="Type a message manually..." onkeydown="handleInputKey(event)" />
-        <button id="sendMsgBtn" onclick="sendManualMsg()">Send</button>
+      <div class="chat-composer-wrap">
+        <!-- AI-fy Message Bar -->
+        <div class="chat-aify-bar">
+          <div class="chat-aify-header">
+            <span style="color:#c084fc; font-weight:600; display:flex; align-items:center; gap:5px;">
+              <span>✨ AI-fy Message</span>
+              <span style="color:var(--text-3); font-weight:normal;">• Rephrases draft into bot style</span>
+            </span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="padding:2px 7px; border-radius:10px; background:rgba(139,92,246,0.15); color:#d8b4fe; border:1px solid rgba(139,92,246,0.25); font-weight:600;">
+                Mode: ${mode.toUpperCase()}
+              </span>
+              <span style="padding:2px 6px; border-radius:10px; background:${c.ai_disabled ? 'rgba(245,158,11,0.12)' : 'rgba(16,185,129,0.12)'}; color:${c.ai_disabled ? '#fbbf24' : 'var(--green)'}; border:1px solid ${c.ai_disabled ? 'rgba(245,158,11,0.25)' : 'rgba(16,185,129,0.25)'};" title="AI-fy works whether auto-replies are paused or active">
+                ⚡ Active ${c.ai_disabled ? '(AI Paused)' : '(AI On)'}
+              </span>
+            </div>
+          </div>
+          <div class="chat-aify-row">
+            <input type="text" id="aifyMsgInput" class="chat-aify-input" placeholder="Type what you want to say... (AI will rephrase in ${mode} mode)" onkeydown="handleAifyKey(event)" />
+            <button id="aifySendBtn" class="aify-send-btn" onclick="sendAifiedMsg(true)" title="AI-fy and send immediately">✨ AI-fy & Send</button>
+            <button id="aifyPreviewBtn" class="aify-preview-btn" onclick="sendAifiedMsg(false)" title="Rephrase with AI and put into manual box below">🪄 To Box</button>
+          </div>
+        </div>
+
+        <!-- Manual Send Bar -->
+        <div class="chat-input-bar">
+          <input type="text" id="manualMsgInput" placeholder="Type a message manually (exact text)..." onkeydown="handleInputKey(event)" />
+          <button id="sendMsgBtn" onclick="sendManualMsg()">Send</button>
+        </div>
       </div>`;
     scrollBottom();
   }
@@ -1781,6 +1894,61 @@
       const d = new Date(ts);
       return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } catch { return ''; }
+  }
+
+  // ── AI-fied message sending ────────────────────────────────
+  async function sendAifiedMsg(shouldSend = true) {
+    const input = document.getElementById('aifyMsgInput');
+    const sendBtn = document.getElementById('aifySendBtn');
+    const previewBtn = document.getElementById('aifyPreviewBtn');
+    if (!input || !input.value.trim() || !activeUid) return;
+
+    const prompt = input.value.trim();
+    if (shouldSend) input.value = '';
+    input.disabled = true;
+    if (sendBtn) sendBtn.disabled = true;
+    if (previewBtn) previewBtn.disabled = true;
+    if (sendBtn && shouldSend) sendBtn.innerHTML = '⏳ Sending...';
+
+    try {
+      const res = await fetch('/api/aify-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: activeUid, prompt: prompt, send: shouldSend }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (shouldSend) {
+          toast('✨ AI-fied & Sent', data.aified_content || 'Sent successfully!');
+        } else {
+          const manualInput = document.getElementById('manualMsgInput');
+          if (manualInput) {
+            manualInput.value = data.aified_content || '';
+            manualInput.focus();
+          }
+          toast('🪄 AI-fied', 'Generated text loaded into manual box below!');
+        }
+      } else {
+        toast('❌ AI-fy Failed', data.error || 'Unknown error');
+      }
+    } catch (e) {
+      console.error(e);
+      toast('❌ AI-fy Failed', 'Network error');
+    } finally {
+      input.disabled = false;
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '✨ AI-fy & Send';
+      }
+      if (previewBtn) previewBtn.disabled = false;
+      if (shouldSend) input.focus();
+    }
+  }
+
+  function handleAifyKey(e) {
+    if (e.key === 'Enter') {
+      sendAifiedMsg(true);
+    }
   }
 
   // ── Manual message sending ────────────────────────────────

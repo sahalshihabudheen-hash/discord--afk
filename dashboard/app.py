@@ -149,6 +149,30 @@ def create_app(config: dict):
         else:
             return jsonify({"success": False, "error": "Bot is not active"}), 500
 
+    @app.route("/api/aify-message", methods=["POST"])
+    def aify_message_route():
+        data = request.get_json() or {}
+        user_id = data.get("user_id")
+        prompt = data.get("prompt")
+        should_send = data.get("send", True)
+
+        if not user_id or not prompt:
+            return jsonify({"success": False, "error": "Missing user_id or prompt"}), 400
+
+        if state["bot"] is not None:
+            import asyncio
+            fut = asyncio.run_coroutine_threadsafe(
+                state["bot"].aify_and_process_message(user_id, prompt, should_send),
+                state["bot"].loop
+            )
+            try:
+                result = fut.result(timeout=15)
+                return jsonify(result)
+            except Exception as e:
+                return jsonify({"success": False, "error": str(e)}), 500
+        else:
+            return jsonify({"success": False, "error": "Bot is not active"}), 500
+
     @app.route("/api/get-rpc")
     def get_rpc():
         return jsonify({"success": True, "rpc_config": state["rpc_config"]})

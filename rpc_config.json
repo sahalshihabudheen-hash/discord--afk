@@ -1,6 +1,6 @@
 {
-  "enabled": false,
-  "activity_type": "none",
+  "enabled": true,
+  "activity_type": "playing",
   "name": "BUSY",
   "details": "BUSY",
   "state": "BUSY",
@@ -13,5 +13,5 @@
   "stream_url": "",
   "status": "dnd",
   "show_timestamp": true,
-  "start_time": 1788269273
+  "start_time": 1788270445
 }

@@ -306,3 +306,89 @@ Sound raw, short, and real. ZERO emojis. No links. Don't get played."""
         except Exception as e:
             print(f"[Groq] Image intent detection error: {e}")
         return None
+
+    async def aify_message(self, user_intent: str, user_name: str, chat_mode: str = "human", history: list = None) -> str:
+        """Transform user's draft, rough thoughts, or intent into an AI-fied message matching the persona and chat mode."""
+        name = self.owner_name
+
+        system_prompt = f"""You are {name}'s AI writing assistant on Discord.
+{name} wants to send a message to {user_name}.
+{name} provided this draft, instruction, or rough idea of what to say:
+\"{user_intent}\"
+
+Your task: AI-fy this draft into {name}'s message to {user_name}, strictly matching the conversation mode: '{chat_mode}'.
+
+MODE INSTRUCTIONS:
+- 'human' mode:
+  * Match {name}'s real casual texting style on Discord:
+  * ZERO emojis. ABSOLUTELY NEVER ANY EMOJIS.
+  * All lowercase letters only.
+  * Chill, relaxed, concise.
+  * Say 'am' instead of 'I am' / 'I\\'m'.
+  * Say 'nah' for no, 'yh' for yes. Use 'bro' sparingly/naturally.
+  * Natural Discord slang, short and unbothered.
+
+- 'ai' mode:
+  * Helpful, clear, crisp, polite assistant tone.
+  * 1 to 3 relevant emojis (👍, ✨, 🙌).
+  * Direct and friendly.
+
+- 'extreme_ai' mode:
+  * High-energy, confident, enthusiastic AI assistant.
+  * Expressive emojis: 🚀🔥💡⚡✨💪.
+  * Knowledgeable, punchy.
+
+- 'romance' mode:
+  * Deeply affectionate, romantic charm, effortless rizz.
+  * Virtual kisses (*mwah*, *forehead kiss* 😘💋), cute hugs (*holds you close* ❤️).
+  * Sweet pet names: babe, cutie, sweetheart, darling, angel.
+  * Heart-fluttering, warm, confident.
+
+IMPORTANT:
+1. Accurately preserve the core intention/facts {name} wants to convey.
+2. Consider recent messages so it fits smoothly into context.
+3. Return ONLY the final raw message text to be sent to {user_name}.
+4. NO introductory text, NO quotes around it, NO reasoning or thinking tags."""
+
+        formatted_history = []
+        if history:
+            for m in history[-6:]:
+                formatted_history.append({
+                    "role": "user" if m.get("role") == "user" else "assistant",
+                    "content": str(m.get("content") or "")
+                })
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            *formatted_history,
+            {"role": "user", "content": f"Please AI-fy this draft/intent into our message to send: \"{user_intent}\""}
+        ]
+
+        max_tokens = self._get_max_tokens(chat_mode)
+        cleaned = ""
+
+        for model_choice in [self.model, self.fallback_model, "llama-3.3-70b-versatile"]:
+            try:
+                resp = await self.client.chat.completions.create(
+                    model=model_choice,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    temperature=0.75,
+                )
+                raw = resp.choices[0].message.content or ""
+                cleaned = re.sub(r"<think>.*?(?:</think>|$)", "", raw, flags=re.DOTALL).strip()
+                if not cleaned:
+                    cleaned = re.sub(r"<think>", "", raw, flags=re.IGNORECASE).strip()
+                if (cleaned.startswith('"') and cleaned.endswith('"')) or (cleaned.startswith("'") and cleaned.endswith("'")):
+                    cleaned = cleaned[1:-1].strip()
+                if cleaned:
+                    break
+            except Exception as e:
+                print(f"[Groq] aify_message failed with {model_choice}: {e}")
+                continue
+
+        if not cleaned:
+            cleaned = user_intent.strip()
+
+        return cleaned
+
