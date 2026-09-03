@@ -68,7 +68,16 @@ def create_app(config: dict):
         elif event == "music_state_update":
             state["music_state"] = data
 
-        socketio.emit(event, data)
+        # Emit via SocketIO — push app context so this works from any thread
+        try:
+            with app.app_context():
+                socketio.emit(event, data)
+        except Exception:
+            # Fallback: emit without context (works when called from Flask thread)
+            try:
+                socketio.emit(event, data)
+            except Exception:
+                pass
 
     # ── Routes ────────────────────────────────────────────────────────
 
