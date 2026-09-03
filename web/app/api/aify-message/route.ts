@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getGlobalState, addPendingMessage, saveToFile } from "@/lib/store";
+import { getGlobalState, addPendingMessage, saveToFile, getSyncedGroqKey } from "@/lib/store";
 import fs from "fs";
 import path from "path";
 
@@ -8,6 +8,10 @@ export const dynamic = "force-dynamic";
 function getGroqApiKey(): string {
   if (process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== "your_groq_api_key_here") {
     return process.env.GROQ_API_KEY;
+  }
+  const syncedKey = getSyncedGroqKey();
+  if (syncedKey && syncedKey !== "your_groq_api_key_here") {
+    return syncedKey;
   }
   const pathsToTry = [
     path.join(process.cwd(), ".env.local"),

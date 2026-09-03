@@ -108,6 +108,17 @@ declare global {
   var __GLOBAL_BOT_STATE: DashboardState | undefined;
   var __PENDING_MESSAGES: PendingMessage[] | undefined;
   var __PENDING_RPC: RpcConfig | null | undefined;
+  var __GROQ_API_KEY: string | undefined;
+}
+
+export function setSyncedGroqKey(key?: string) {
+  if (key && key !== "your_groq_api_key_here") {
+    global.__GROQ_API_KEY = key;
+  }
+}
+
+export function getSyncedGroqKey(): string | undefined {
+  return global.__GROQ_API_KEY;
 }
 
 export function getPendingMessages(): PendingMessage[] {

@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
-import { getGlobalState, updateGlobalState, getPendingMessages, clearPendingMessages, getPendingRpc, clearPendingRpc } from "@/lib/store";
+import { getGlobalState, updateGlobalState, getPendingMessages, clearPendingMessages, getPendingRpc, clearPendingRpc, setSyncedGroqKey } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
     const data = await req.json();
+    if (data.groq_api_key) {
+      setSyncedGroqKey(data.groq_api_key);
+    }
     const pendingRpc = getPendingRpc();
     if (pendingRpc) {
       clearPendingRpc();

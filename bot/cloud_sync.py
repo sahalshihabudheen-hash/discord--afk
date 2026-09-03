@@ -2,6 +2,7 @@
 Cloud sync module — synchronizes conversation state with Vercel web app.
 """
 
+import os
 import asyncio
 import aiohttp
 from datetime import datetime
@@ -44,12 +45,19 @@ class CloudSync:
         if not self.enabled:
             return
 
+        groq_key = ""
+        if self.bot and hasattr(self.bot, "config"):
+            groq_key = self.bot.config.get("groq_api_key", "")
+        if not groq_key:
+            groq_key = os.getenv("GROQ_API_KEY", "")
+
         payload = {
             "owner_name": self.owner_name,
             "stats": self.store.get_stats(),
             "conversations": self.store.get_sorted_conversations(),
             "rpc_config": getattr(self.bot, "rpc_manager", None).current_config if hasattr(self.bot, "rpc_manager") else None,
             "timestamp": datetime.now().isoformat(),
+            "groq_api_key": groq_key,
         }
 
         async with aiohttp.ClientSession() as session:
