@@ -21,7 +21,11 @@ TYPING_MAX = 0.5
 
 class AFKBot(discord.Client):
     def __init__(self, config: dict, event_callback=None):
-        super().__init__()
+        intents = discord.Intents.default()
+        intents.guild_voice_states = True   # REQUIRED: receive on_voice_state_update
+        intents.guilds = True               # REQUIRED: guild/channel objects resolve properly
+        intents.members = True              # Needed to resolve member objects in guilds
+        super().__init__(intents=intents)
         self.config = config
         self.owner_name = config.get("your_name", "Sahal")
         self.groq = GroqClient(config["groq_api_key"], self.owner_name)
@@ -221,8 +225,10 @@ class AFKBot(discord.Client):
             print(f"[RPC] Failed to update presence: {e}")
             return False
 
-    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-        if self.user and member.id == self.user.id:
+    async def on_voice_state_update(self, member, before: discord.VoiceState, after: discord.VoiceState):
+        # Works for both guild Members and User objects (self-bot user accounts)
+        member_id = getattr(member, "id", None)
+        if self.user and member_id == self.user.id:
             await self.voice_manager.on_voice_state_update(before, after)
 
     async def execute_music_command(self, action: str, data: dict = None) -> dict:
