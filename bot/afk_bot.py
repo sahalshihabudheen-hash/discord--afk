@@ -12,6 +12,7 @@ from bot.conversation_store import ConversationStore
 from bot.cloud_sync import CloudSync
 from bot.image_generator import ImageGenerator
 from bot.rpc_manager import RPCManager
+from bot.voice_manager import VoiceManager
 
 # Typing delay range (seconds) — lightning fast replies
 TYPING_MIN = 0.2
@@ -27,6 +28,7 @@ class AFKBot(discord.Client):
         self.image_gen = ImageGenerator()
         self.store = ConversationStore()
         self.rpc_manager = RPCManager()
+        self.voice_manager = VoiceManager(self)
         self.afk_mode: bool = config.get("afk_mode", True)
         self.event_callback = event_callback
         self.cloud_sync = CloudSync(
@@ -218,6 +220,28 @@ class AFKBot(discord.Client):
         except Exception as e:
             print(f"[RPC] Failed to update presence: {e}")
             return False
+
+    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+        if self.user and member.id == self.user.id:
+            await self.voice_manager.on_voice_state_update(before, after)
+
+    async def execute_music_command(self, action: str, data: dict = None) -> dict:
+        data = data or {}
+        if action == "play":
+            return await self.voice_manager.play(data.get("query", ""))
+        elif action == "pause":
+            success = self.voice_manager.pause()
+            return {"success": success}
+        elif action == "resume":
+            success = self.voice_manager.resume()
+            return {"success": success}
+        elif action == "stop":
+            success = self.voice_manager.stop()
+            return {"success": success}
+        elif action == "volume":
+            success = self.voice_manager.set_volume(data.get("volume", 80))
+            return {"success": success}
+        return {"success": False, "error": f"Unknown action: {action}"}
 
     async def on_message(self, message: discord.Message):
         # Ignore own messages

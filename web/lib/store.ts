@@ -84,12 +84,45 @@ export interface RpcConfig {
   start_time?: number | null;
 }
 
+export interface VoiceState {
+  in_vc: boolean;
+  channel_id?: string | null;
+  channel_name?: string | null;
+  guild_id?: string | null;
+  guild_name?: string | null;
+  self_mute?: boolean;
+  self_deaf?: boolean;
+}
+
+export interface MusicTrack {
+  title: string;
+  url: string;
+  duration?: string;
+  thumbnail?: string;
+  channel?: string;
+}
+
+export interface MusicState {
+  is_playing: boolean;
+  is_paused: boolean;
+  volume: number;
+  current_track?: MusicTrack | null;
+}
+
+export interface MusicCommand {
+  action: "play" | "pause" | "resume" | "stop" | "volume";
+  query?: string;
+  volume?: number;
+}
+
 export interface DashboardState {
   afk_mode: boolean;
   owner_name: string;
   last_sync: string | null;
   bot_connected: boolean;
   rpc_config?: RpcConfig;
+  voice_state?: VoiceState;
+  music_state?: MusicState;
   stats: {
     total_conversations: number;
     total_messages: number;
@@ -108,6 +141,7 @@ declare global {
   var __GLOBAL_BOT_STATE: DashboardState | undefined;
   var __PENDING_MESSAGES: PendingMessage[] | undefined;
   var __PENDING_RPC: RpcConfig | null | undefined;
+  var __PENDING_MUSIC_COMMANDS: MusicCommand[] | undefined;
   var __GROQ_API_KEY: string | undefined;
 }
 
@@ -135,6 +169,22 @@ export function addPendingMessage(msg: PendingMessage) {
 
 export function clearPendingMessages() {
   global.__PENDING_MESSAGES = [];
+}
+
+export function getPendingMusicCommands(): MusicCommand[] {
+  if (!global.__PENDING_MUSIC_COMMANDS) {
+    global.__PENDING_MUSIC_COMMANDS = [];
+  }
+  return global.__PENDING_MUSIC_COMMANDS;
+}
+
+export function addPendingMusicCommand(cmd: MusicCommand) {
+  const queue = getPendingMusicCommands();
+  queue.push(cmd);
+}
+
+export function clearPendingMusicCommands() {
+  global.__PENDING_MUSIC_COMMANDS = [];
 }
 
 export function getPendingRpc(): RpcConfig | null | undefined {

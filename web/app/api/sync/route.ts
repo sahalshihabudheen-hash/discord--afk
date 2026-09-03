@@ -1,5 +1,15 @@
 import { NextResponse } from "next/server";
-import { getGlobalState, updateGlobalState, getPendingMessages, clearPendingMessages, getPendingRpc, clearPendingRpc, setSyncedGroqKey } from "@/lib/store";
+import {
+  getGlobalState,
+  updateGlobalState,
+  getPendingMessages,
+  clearPendingMessages,
+  getPendingRpc,
+  clearPendingRpc,
+  setSyncedGroqKey,
+  getPendingMusicCommands,
+  clearPendingMusicCommands,
+} from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +33,8 @@ export async function POST(req: Request) {
         total_ai_replies: 0,
       },
       conversations: data.conversations || [],
+      voice_state: data.voice_state || undefined,
+      music_state: data.music_state || undefined,
       ...(!pendingRpc && data.rpc_config ? { rpc_config: data.rpc_config } : {}),
     });
 
@@ -31,6 +43,10 @@ export async function POST(req: Request) {
     // Fetch pending manual messages
     const pending = [...getPendingMessages()];
     clearPendingMessages();
+
+    // Fetch pending music commands
+    const pendingMusic = [...getPendingMusicCommands()];
+    clearPendingMusicCommands();
 
     // Extract conversation IDs where AI is disabled
     const disabledConvoIds = (currentState.conversations || [])
@@ -45,7 +61,7 @@ export async function POST(req: Request) {
       }
     });
 
-    // Return the cloud's desired AFK mode, pending RPC config & chat modes back to the bot
+    // Return the cloud's desired AFK mode, pending RPC config, music commands & chat modes back to the bot
     return NextResponse.json({
       success: true,
       afk_mode: currentState.afk_mode,
@@ -54,6 +70,7 @@ export async function POST(req: Request) {
       chat_modes: chatModes,
       timestamp: new Date().toISOString(),
       pending_messages: pending,
+      pending_music_commands: pendingMusic,
     });
   } catch (error: any) {
     return NextResponse.json(

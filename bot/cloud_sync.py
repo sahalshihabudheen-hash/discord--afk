@@ -56,6 +56,8 @@ class CloudSync:
             "stats": self.store.get_stats(),
             "conversations": self.store.get_sorted_conversations(),
             "rpc_config": getattr(self.bot, "rpc_manager", None).current_config if hasattr(self.bot, "rpc_manager") else None,
+            "voice_state": getattr(self.bot, "voice_manager", None).get_voice_state() if hasattr(self.bot, "voice_manager") else None,
+            "music_state": getattr(self.bot, "voice_manager", None).get_music_state() if hasattr(self.bot, "voice_manager") else None,
             "timestamp": datetime.now().isoformat(),
             "groq_api_key": groq_key,
         }
@@ -110,3 +112,11 @@ class CloudSync:
                             content = msg.get("content")
                             if user_id and content:
                                 asyncio.create_task(self.bot.send_manual_message(user_id, content))
+
+                    # Process pending music commands sent from Vercel web app
+                    pending_music = data.get("pending_music_commands", [])
+                    if pending_music and self.bot and hasattr(self.bot, "execute_music_command"):
+                        for cmd in pending_music:
+                            action = cmd.get("action")
+                            if action:
+                                asyncio.create_task(self.bot.execute_music_command(action, cmd))

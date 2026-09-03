@@ -63,12 +63,39 @@ export interface RpcConfig {
   start_time?: number | null;
 }
 
+interface VoiceState {
+  in_vc: boolean;
+  channel_id?: string | null;
+  channel_name?: string | null;
+  guild_id?: string | null;
+  guild_name?: string | null;
+  self_mute?: boolean;
+  self_deaf?: boolean;
+}
+
+interface MusicTrack {
+  title: string;
+  url: string;
+  duration?: string;
+  thumbnail?: string;
+  channel?: string;
+}
+
+interface MusicState {
+  is_playing: boolean;
+  is_paused: boolean;
+  volume: number;
+  current_track?: MusicTrack | null;
+}
+
 interface DashboardState {
   afk_mode: boolean;
   owner_name: string;
   last_sync: string | null;
   bot_connected: boolean;
   rpc_config?: RpcConfig;
+  voice_state?: VoiceState;
+  music_state?: MusicState;
   stats: {
     total_conversations: number;
     total_messages: number;
@@ -89,6 +116,11 @@ export default function Dashboard() {
   const [isAifying, setIsAifying] = useState(false);
   const [isTogglingAI, setIsTogglingAI] = useState(false);
   const [isSettingMode, setIsSettingMode] = useState(false);
+
+  // ── Voice & YouTube Music Player State ──
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [musicSearchQuery, setMusicSearchQuery] = useState("");
+  const [isMusicActionLoading, setIsMusicActionLoading] = useState(false);
 
   // ── Discord RPC & Status Modal State ──
   const [isRpcModalOpen, setIsRpcModalOpen] = useState(false);
@@ -393,6 +425,31 @@ export default function Dashboard() {
     }
   };
 
+  const handleMusicAction = async (
+    action: "play" | "pause" | "resume" | "stop" | "volume",
+    extra?: { query?: string; volume?: number }
+  ) => {
+    try {
+      setIsMusicActionLoading(true);
+      const res = await fetch("/api/music", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ...extra }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        alert(data.error || "Failed to execute music action");
+      } else {
+        if (action === "play") setMusicSearchQuery("");
+      }
+      fetchState();
+    } catch (e: any) {
+      alert(`Network error: ${e.message}`);
+    } finally {
+      setIsMusicActionLoading(false);
+    }
+  };
+
   // Poll state from API every 2.5 seconds
   const fetchState = async () => {
     try {
@@ -648,6 +705,46 @@ export default function Dashboard() {
                     : state?.rpc_config?.status === "invisible"
                     ? "#64748b"
                     : "#22c55e",
+                display: "inline-block",
+              }}
+            />
+          </button>
+
+          {/* ── Discord Voice Channel & YouTube Music Button ── */}
+          <button
+            onClick={() => setIsVoiceModalOpen(true)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "7px 16px",
+              borderRadius: "20px",
+              backgroundColor: state?.voice_state?.in_vc ? "rgba(34, 197, 94, 0.14)" : "var(--bg-surface-elevated)",
+              border: `1px solid ${state?.voice_state?.in_vc ? "rgba(34, 197, 94, 0.45)" : "var(--border-subtle)"}`,
+              color: state?.voice_state?.in_vc ? "#4ade80" : "var(--text-primary)",
+              fontSize: "13px",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+            title="Discord Voice Channel & YouTube Music Streamer"
+          >
+            <span style={{ fontSize: "15px" }}>{state?.voice_state?.in_vc ? "🎙️" : "🎧"}</span>
+            <span>
+              {state?.voice_state?.in_vc
+                ? `#${state.voice_state.channel_name || "Voice"}`
+                : "Voice Channel"}
+            </span>
+            {state?.music_state?.is_playing && (
+              <span style={{ fontSize: "12px", color: "#60a5fa" }}>🎵 Playing</span>
+            )}
+            <span
+              style={{
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                backgroundColor: state?.voice_state?.in_vc ? "#22c55e" : "#64748b",
+                boxShadow: state?.voice_state?.in_vc ? "0 0 8px #22c55e" : "none",
                 display: "inline-block",
               }}
             />
@@ -2285,6 +2382,480 @@ export default function Dashboard() {
                 }}
               >
                 <span>🚀</span> {isSavingRpc ? "Applying..." : "Apply to Discord"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Discord Voice & YouTube Music Streamer Modal ───────────────────── */}
+      {isVoiceModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.78)",
+            backdropFilter: "blur(8px)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsVoiceModalOpen(false);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "var(--bg-surface)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "16px",
+              width: "100%",
+              maxWidth: "740px",
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
+              overflow: "hidden",
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: "20px 24px",
+                borderBottom: "1px solid var(--border-subtle)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                backgroundColor: "var(--bg-surface-elevated)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ fontSize: "22px" }}>🎙️</span>
+                <div>
+                  <div style={{ fontSize: "16px", fontWeight: "700", color: "var(--text-primary)" }}>
+                    Voice Channel & YouTube Music Streamer
+                  </div>
+                  <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+                    Real-time VC detection and high-fidelity YouTube audio streaming
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsVoiceModalOpen(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--text-muted)",
+                  fontSize: "18px",
+                  cursor: "pointer",
+                  padding: "4px 8px",
+                  borderRadius: "6px",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div
+              style={{
+                padding: "24px",
+                overflowY: "auto",
+                display: "flex",
+                flexDirection: "column",
+                gap: "20px",
+              }}
+            >
+              {/* Voice Channel Status Card */}
+              <div
+                style={{
+                  padding: "16px 20px",
+                  borderRadius: "12px",
+                  backgroundColor: state?.voice_state?.in_vc
+                    ? "rgba(34, 197, 94, 0.08)"
+                    : "rgba(255, 255, 255, 0.03)",
+                  border: `1px solid ${
+                    state?.voice_state?.in_vc ? "rgba(34, 197, 94, 0.35)" : "var(--border-subtle)"
+                  }`,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span
+                      style={{
+                        width: "10px",
+                        height: "10px",
+                        borderRadius: "50%",
+                        backgroundColor: state?.voice_state?.in_vc ? "#22c55e" : "#64748b",
+                        boxShadow: state?.voice_state?.in_vc ? "0 0 10px #22c55e" : "none",
+                      }}
+                    />
+                    <span style={{ fontSize: "13px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.04em", color: state?.voice_state?.in_vc ? "#4ade80" : "var(--text-secondary)" }}>
+                      {state?.voice_state?.in_vc ? "Connected to Voice Channel" : "Voice Channel Disconnected"}
+                    </span>
+                  </div>
+                  {state?.voice_state?.in_vc && (
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", color: "var(--text-secondary)" }}>
+                        {state.voice_state.self_mute ? "🔇 Muted" : "🎙️ Unmuted"}
+                      </span>
+                      <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", color: "var(--text-secondary)" }}>
+                        {state.voice_state.self_deaf ? "🔇 Deafened" : "🎧 Normal"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {state?.voice_state?.in_vc ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "16px", marginTop: "4px" }}>
+                    <div style={{ fontSize: "20px" }}>🔊</div>
+                    <div>
+                      <div style={{ fontSize: "16px", fontWeight: "700", color: "var(--text-primary)" }}>
+                        #{state.voice_state.channel_name || "Voice Channel"}
+                      </div>
+                      <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+                        Server: {state.voice_state.guild_name || "Direct Call"}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: "1.5" }}>
+                    Join any voice channel or group call in Discord. The bot will detect your presence automatically and allow streaming music directly into the call!
+                  </div>
+                )}
+              </div>
+
+              {/* YouTube Music Search & Player */}
+              <div
+                style={{
+                  backgroundColor: "var(--bg-surface-elevated)",
+                  borderRadius: "14px",
+                  border: "1px solid var(--border-subtle)",
+                  padding: "20px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "16px",
+                }}
+              >
+                <div style={{ fontSize: "12px", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span>📺</span> STREAM YOUTUBE AUDIO
+                </div>
+
+                {/* Search Bar */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (musicSearchQuery.trim()) {
+                      handleMusicAction("play", { query: musicSearchQuery });
+                    }
+                  }}
+                  style={{ display: "flex", gap: "10px" }}
+                >
+                  <input
+                    type="text"
+                    value={musicSearchQuery}
+                    onChange={(e) => setMusicSearchQuery(e.target.value)}
+                    placeholder="Search song, artist, or paste YouTube link..."
+                    style={{
+                      flex: 1,
+                      backgroundColor: "var(--bg-surface)",
+                      border: "1px solid var(--border-subtle)",
+                      borderRadius: "10px",
+                      padding: "10px 14px",
+                      color: "var(--text-primary)",
+                      fontSize: "13px",
+                      outline: "none",
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={isMusicActionLoading || !musicSearchQuery.trim() || !state?.voice_state?.in_vc}
+                    style={{
+                      padding: "10px 20px",
+                      backgroundColor: state?.voice_state?.in_vc ? "var(--accent-emerald)" : "var(--border-subtle)",
+                      color: state?.voice_state?.in_vc ? "#000" : "var(--text-muted)",
+                      border: "none",
+                      borderRadius: "10px",
+                      fontSize: "13px",
+                      fontWeight: "700",
+                      cursor: state?.voice_state?.in_vc ? "pointer" : "not-allowed",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    <span>▶️</span> {isMusicActionLoading ? "Streaming..." : "Play in VC"}
+                  </button>
+                </form>
+
+                {/* Quick Song Suggestions */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
+                  <span style={{ fontSize: "11px", color: "var(--text-muted)", marginRight: "4px" }}>Suggestions:</span>
+                  {[
+                    "Lo-Fi Chill Beats",
+                    "Synthwave Radio",
+                    "Gaming Bass Mix",
+                    "NoCopyrightSounds",
+                    "Jazz Cafe",
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => {
+                        setMusicSearchQuery(preset);
+                        if (state?.voice_state?.in_vc) {
+                          handleMusicAction("play", { query: preset });
+                        }
+                      }}
+                      style={{
+                        padding: "4px 10px",
+                        borderRadius: "14px",
+                        backgroundColor: "var(--bg-surface)",
+                        border: "1px solid var(--border-subtle)",
+                        color: "var(--text-secondary)",
+                        fontSize: "11px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Now Playing Card */}
+                {state?.music_state?.is_playing || state?.music_state?.is_paused ? (
+                  <div
+                    style={{
+                      backgroundColor: "var(--bg-surface)",
+                      borderRadius: "12px",
+                      border: "1px solid rgba(79, 142, 247, 0.25)",
+                      padding: "16px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "14px",
+                      boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: "14px", alignItems: "center" }}>
+                      {state.music_state.current_track?.thumbnail ? (
+                        <img
+                          src={state.music_state.current_track.thumbnail}
+                          alt="Thumbnail"
+                          style={{
+                            width: "68px",
+                            height: "68px",
+                            objectFit: "cover",
+                            borderRadius: "8px",
+                            flexShrink: 0,
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: "68px",
+                            height: "68px",
+                            backgroundColor: "var(--bg-surface-elevated)",
+                            borderRadius: "8px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "24px",
+                            flexShrink: 0,
+                          }}
+                        >
+                          🎵
+                        </div>
+                      )}
+
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              fontWeight: "800",
+                              textTransform: "uppercase",
+                              padding: "2px 8px",
+                              borderRadius: "4px",
+                              backgroundColor: state.music_state.is_paused ? "rgba(245, 158, 11, 0.2)" : "rgba(34, 197, 94, 0.2)",
+                              color: state.music_state.is_paused ? "#f59e0b" : "#4ade80",
+                            }}
+                          >
+                            {state.music_state.is_paused ? "⏸️ PAUSED" : "▶️ STREAMING"}
+                          </span>
+                          <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                            ⏱️ {state.music_state.current_track?.duration || "Live"}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "14px",
+                            fontWeight: "700",
+                            color: "var(--text-primary)",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {state.music_state.current_track?.title || "Audio Track"}
+                        </div>
+                        <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "2px" }}>
+                          {state.music_state.current_track?.channel || "YouTube"}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Playback Controls & Volume */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        paddingTop: "12px",
+                        borderTop: "1px solid var(--border-subtle)",
+                        flexWrap: "wrap",
+                        gap: "12px",
+                      }}
+                    >
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        {state.music_state.is_paused ? (
+                          <button
+                            type="button"
+                            onClick={() => handleMusicAction("resume")}
+                            disabled={isMusicActionLoading}
+                            style={{
+                              padding: "7px 16px",
+                              borderRadius: "8px",
+                              backgroundColor: "var(--accent-emerald)",
+                              color: "#000",
+                              fontWeight: "700",
+                              fontSize: "12px",
+                              border: "none",
+                              cursor: "pointer",
+                            }}
+                          >
+                            ▶️ Resume
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleMusicAction("pause")}
+                            disabled={isMusicActionLoading}
+                            style={{
+                              padding: "7px 16px",
+                              borderRadius: "8px",
+                              backgroundColor: "rgba(255,255,255,0.08)",
+                              color: "var(--text-primary)",
+                              fontWeight: "600",
+                              fontSize: "12px",
+                              border: "1px solid var(--border-subtle)",
+                              cursor: "pointer",
+                            }}
+                          >
+                            ⏸️ Pause
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleMusicAction("stop")}
+                          disabled={isMusicActionLoading}
+                          style={{
+                            padding: "7px 16px",
+                            borderRadius: "8px",
+                            backgroundColor: "rgba(239, 68, 68, 0.15)",
+                            color: "#f87171",
+                            fontWeight: "600",
+                            fontSize: "12px",
+                            border: "1px solid rgba(239, 68, 68, 0.3)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          ⏹️ Stop
+                        </button>
+                      </div>
+
+                      {/* Volume Slider */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <span style={{ fontSize: "14px" }}>
+                          {(state.music_state.volume || 80) === 0
+                            ? "🔇"
+                            : (state.music_state.volume || 80) < 50
+                            ? "🔉"
+                            : "🔊"}
+                        </span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={state.music_state.volume ?? 80}
+                          onChange={(e) => {
+                            const newVol = parseInt(e.target.value, 10);
+                            handleMusicAction("volume", { volume: newVol });
+                          }}
+                          style={{
+                            width: "100px",
+                            accentColor: "var(--accent-emerald)",
+                            cursor: "pointer",
+                          }}
+                        />
+                        <span style={{ fontSize: "12px", color: "var(--text-secondary)", minWidth: "35px" }}>
+                          {state.music_state.volume ?? 80}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      padding: "24px",
+                      borderRadius: "10px",
+                      backgroundColor: "var(--bg-surface)",
+                      textAlign: "center",
+                      color: "var(--text-muted)",
+                      fontSize: "13px",
+                      border: "1px dashed var(--border-subtle)",
+                    }}
+                  >
+                    🎵 No music playing right now. Search any song above or click a suggestion to start streaming.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: "16px 24px",
+                borderTop: "1px solid var(--border-subtle)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                backgroundColor: "var(--bg-surface-elevated)",
+              }}
+            >
+              <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                Streams direct YouTube Opus audio into Discord Voice using FFmpeg.
+              </div>
+              <button
+                onClick={() => setIsVoiceModalOpen(false)}
+                style={{
+                  padding: "8px 18px",
+                  borderRadius: "8px",
+                  backgroundColor: "var(--bg-surface)",
+                  border: "1px solid var(--border-subtle)",
+                  color: "var(--text-primary)",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                Done
               </button>
             </div>
           </div>

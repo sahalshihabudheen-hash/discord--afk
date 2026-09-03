@@ -940,6 +940,17 @@
       color: var(--accent);
       font-weight: 600;
     }
+    .chip {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 3px 10px;
+      font-size: 11px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .chip:hover { border-color: var(--border-hover); color: var(--text-1); }
     .rpc-input-group {
       display: flex;
       flex-direction: column;
@@ -1259,6 +1270,12 @@
       <span class="rpc-status-dot online" id="topbarRpcStatusDot"></span>
     </button>
 
+    <button class="rpc-topbar-btn" id="openVoiceBtn" onclick="openVoiceModal()" title="Discord Voice & YouTube Music Streamer" style="margin-left: 2px;">
+      <span id="topbarVoiceIcon">🎧</span>
+      <span id="topbarVoiceLabel">Voice Channel</span>
+      <span class="rpc-status-dot offline" id="topbarVoiceStatusDot" style="background: #64748b;"></span>
+    </button>
+
     <div class="afk-btn" id="afkBtn" onclick="toggleAFK()" role="button" aria-pressed="{{ 'true' if afk_mode else 'false' }}">
       <div class="sw" id="sw"><div class="sw-knob"></div></div>
       <span class="afk-text" id="afkText">AFK</span>
@@ -1474,6 +1491,92 @@
       <button class="btn-primary" id="saveRpcBtn" onclick="saveAndApplyRpc()">
         <span>🚀</span> Apply to Discord
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Discord Voice & YouTube Music Streamer Modal ─────────────────── -->
+<div class="modal-overlay" id="voiceModalOverlay" onclick="handleVoiceModalOverlayClick(event)">
+  <div class="rpc-modal" id="voiceModal" style="max-width: 720px;">
+    <div class="rpc-modal-head">
+      <div class="rpc-modal-title">
+        <span>🎙️</span> Discord Voice Channel & YouTube Music Streamer
+      </div>
+      <button class="rpc-modal-close" onclick="closeVoiceModal()" title="Close">✕</button>
+    </div>
+
+    <div class="rpc-modal-body" style="grid-template-columns: 1fr; gap: 16px; padding: 20px;">
+      <!-- Voice Channel Detection Card -->
+      <div id="vcStatusBanner" style="padding: 16px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="vcStatusDot" style="width: 10px; height: 10px; border-radius: 50%; background: #64748b; display: inline-block;"></span>
+            <span id="vcStatusTitle" style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-2);">Voice Channel Disconnected</span>
+          </div>
+          <div id="vcBadges" style="display: flex; gap: 6px;"></div>
+        </div>
+        <div id="vcStatusDetails" style="font-size: 13px; color: var(--text-2); margin-top: 4px;">
+          Join any Discord voice channel on your account to start streaming music.
+        </div>
+      </div>
+
+      <!-- YouTube Search & Stream Box -->
+      <div style="background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-3); letter-spacing: 0.05em;">
+          📺 Stream YouTube Audio Into VC
+        </div>
+
+        <form id="musicForm" onsubmit="handleMusicSubmit(event)" style="display: flex; gap: 10px;">
+          <input type="text" id="musicQueryInput" placeholder="Search song, artist, or paste YouTube link..." style="flex: 1; background: var(--bg-1); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text-1); font-size: 13px; outline: none;" />
+          <button type="submit" id="musicPlayBtn" style="padding: 10px 18px; background: var(--accent); color: #fff; font-weight: 700; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+            <span>▶️</span> Play in VC
+          </button>
+        </form>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+          <span style="font-size: 11px; color: var(--text-3);">Quick Presets:</span>
+          <button type="button" class="chip" onclick="quickPlayPreset('Lo-Fi Chill Beats')">Lo-Fi Chill</button>
+          <button type="button" class="chip" onclick="quickPlayPreset('Synthwave Radio')">Synthwave</button>
+          <button type="button" class="chip" onclick="quickPlayPreset('Gaming Bass Mix')">Gaming Bass</button>
+          <button type="button" class="chip" onclick="quickPlayPreset('NoCopyrightSounds')">NCS</button>
+        </div>
+
+        <!-- Now Playing Card -->
+        <div id="musicNowPlaying" style="display: none; background: var(--bg-1); border: 1px solid rgba(79,142,247,0.25); border-radius: 10px; padding: 14px; flex-direction: column; gap: 12px;">
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <img id="musicThumb" src="" alt="Thumb" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover; background: var(--bg-3);" />
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 3px;">
+                <span id="musicBadge" style="font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: rgba(52,211,153,0.15); color: var(--green);">▶️ STREAMING</span>
+                <span id="musicDuration" style="font-size: 11px; color: var(--text-3);">⏱️ 0:00</span>
+              </div>
+              <div id="musicTrackTitle" style="font-size: 14px; font-weight: 700; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Song Title</div>
+              <div id="musicTrackChannel" style="font-size: 12px; color: var(--text-2); margin-top: 2px;">Channel</div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 10px; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; gap: 8px;">
+              <button type="button" id="musicPauseResumeBtn" onclick="togglePauseResumeMusic()" class="btn-secondary" style="padding: 6px 14px; font-size: 12px;">⏸️ Pause</button>
+              <button type="button" onclick="stopMusic()" class="btn-secondary" style="padding: 6px 14px; font-size: 12px; color: var(--red); border-color: rgba(248,113,113,0.3);">⏹️ Stop</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="musicVolumeIcon" style="font-size: 14px;">🔊</span>
+              <input type="range" id="musicVolumeSlider" min="0" max="100" value="80" onchange="changeMusicVolume(this.value)" style="width: 90px; accent-color: var(--accent); cursor: pointer;" />
+              <span id="musicVolumeVal" style="font-size: 12px; color: var(--text-2); min-width: 32px;">80%</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="musicEmptyNotice" style="padding: 16px; border-radius: 8px; background: var(--bg-1); text-align: center; color: var(--text-3); font-size: 12px; border: 1px dashed var(--border);">
+          🎵 No music currently streaming. Search above to begin.
+        </div>
+      </div>
+    </div>
+
+    <div class="rpc-modal-foot">
+      <div style="font-size: 11px; color: var(--text-3);">Opus audio streaming via yt-dlp & FFmpeg</div>
+      <button class="btn-secondary" onclick="closeVoiceModal()">Done</button>
     </div>
   </div>
 </div>
@@ -2396,6 +2499,190 @@
     }
   }
 
+  // ── Voice & Music State ────────────────────────────────────
+  let currentVoiceState = { in_vc: false };
+  let currentMusicState = { is_playing: false, is_paused: false, volume: 80, current_track: null };
+  let isMusicBusy = false;
+
+  function renderVcStatusBanner(vs) {
+    const dot = document.getElementById('vcStatusDot');
+    const title = document.getElementById('vcStatusTitle');
+    const details = document.getElementById('vcStatusDetails');
+    const badges = document.getElementById('vcBadges');
+    const btn = document.getElementById('openVoiceBtn');
+    const btnIcon = document.getElementById('topbarVoiceIcon');
+    const btnLabel = document.getElementById('topbarVoiceLabel');
+    const btnDot = document.getElementById('topbarVoiceStatusDot');
+    const banner = document.getElementById('vcStatusBanner');
+
+    if (vs && vs.in_vc) {
+      dot.style.background = '#22c55e';
+      dot.style.boxShadow = '0 0 8px #22c55e';
+      title.style.color = '#4ade80';
+      title.textContent = 'Connected to Voice Channel';
+      details.innerHTML = `<strong style="font-size:15px;">🔊 #${vs.channel_name || 'Voice Channel'}</strong><br><span style="font-size:12px;">Server: ${vs.guild_name || 'Direct Call'}</span>`;
+      banner.style.background = 'rgba(34,197,94,0.08)';
+      banner.style.borderColor = 'rgba(34,197,94,0.35)';
+      badges.innerHTML = `
+        <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,0.06);color:var(--text-2);">${vs.self_mute ? '🔇 Muted' : '🎙️ Unmuted'}</span>
+        <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,0.06);color:var(--text-2);">${vs.self_deaf ? '🔇 Deafened' : '🎧 Normal'}</span>
+      `;
+      // Topbar button
+      btnIcon.textContent = '🎙️';
+      btnLabel.textContent = `#${vs.channel_name || 'Voice'}`;
+      btnDot.style.background = '#22c55e';
+      btnDot.style.boxShadow = '0 0 6px #22c55e';
+      btn.style.borderColor = 'rgba(34,197,94,0.45)';
+      btn.style.color = '#4ade80';
+      btn.style.background = 'rgba(34,197,94,0.1)';
+    } else {
+      dot.style.background = '#64748b';
+      dot.style.boxShadow = 'none';
+      title.style.color = 'var(--text-2)';
+      title.textContent = 'Voice Channel Disconnected';
+      details.textContent = 'Join any Discord voice channel on your account to start streaming music.';
+      banner.style.background = 'rgba(255,255,255,0.03)';
+      banner.style.borderColor = 'var(--border)';
+      badges.innerHTML = '';
+      btnIcon.textContent = '🎧';
+      btnLabel.textContent = 'Voice Channel';
+      btnDot.style.background = '#64748b';
+      btnDot.style.boxShadow = 'none';
+      btn.style.borderColor = '';
+      btn.style.color = '';
+      btn.style.background = '';
+    }
+  }
+
+  function renderMusicPlayer(ms) {
+    const nowPlaying = document.getElementById('musicNowPlaying');
+    const empty = document.getElementById('musicEmptyNotice');
+    const badge = document.getElementById('musicBadge');
+    const pauseBtn = document.getElementById('musicPauseResumeBtn');
+    const thumb = document.getElementById('musicThumb');
+    const durationEl = document.getElementById('musicDuration');
+    const titleEl = document.getElementById('musicTrackTitle');
+    const channelEl = document.getElementById('musicTrackChannel');
+    const volSlider = document.getElementById('musicVolumeSlider');
+    const volVal = document.getElementById('musicVolumeVal');
+    const volIcon = document.getElementById('musicVolumeIcon');
+
+    if (ms && (ms.is_playing || ms.is_paused)) {
+      nowPlaying.style.display = 'flex';
+      empty.style.display = 'none';
+
+      const t = ms.current_track || {};
+      thumb.src = t.thumbnail || '';
+      thumb.style.display = t.thumbnail ? 'block' : 'none';
+      titleEl.textContent = t.title || 'Audio Track';
+      channelEl.textContent = t.channel || 'YouTube';
+      durationEl.textContent = `⏱️ ${t.duration || 'Live'}`;
+
+      if (ms.is_paused) {
+        badge.textContent = '⏸️ PAUSED';
+        badge.style.background = 'rgba(245,158,11,0.15)';
+        badge.style.color = '#f59e0b';
+        pauseBtn.textContent = '▶️ Resume';
+      } else {
+        badge.textContent = '▶️ STREAMING';
+        badge.style.background = 'rgba(52,211,153,0.15)';
+        badge.style.color = 'var(--green)';
+        pauseBtn.textContent = '⏸️ Pause';
+      }
+
+      const vol = ms.volume ?? 80;
+      volSlider.value = vol;
+      volVal.textContent = `${vol}%`;
+      volIcon.textContent = vol === 0 ? '🔇' : vol < 50 ? '🔉' : '🔊';
+    } else {
+      nowPlaying.style.display = 'none';
+      empty.style.display = 'block';
+    }
+  }
+
+  async function musicApiCall(action, extra = {}) {
+    if (isMusicBusy) return;
+    isMusicBusy = true;
+    try {
+      const res = await fetch(`/api/music/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(extra),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (data.voice_state) { currentVoiceState = data.voice_state; renderVcStatusBanner(currentVoiceState); }
+        if (data.music_state) { currentMusicState = data.music_state; renderMusicPlayer(currentMusicState); }
+        toast('🎵 Music', data.message || `${action} OK`);
+      } else {
+        toast('❌ Music Error', data.error || 'Unknown error', true);
+      }
+    } catch (e) {
+      toast('❌ Music Error', 'Network error', true);
+    } finally {
+      isMusicBusy = false;
+    }
+  }
+
+  function handleMusicSubmit(e) {
+    e.preventDefault();
+    const q = document.getElementById('musicQueryInput').value.trim();
+    if (!q) return;
+    if (!currentVoiceState.in_vc) {
+      toast('⚠️ Not in VC', 'Please join a Discord voice channel first!', true);
+      return;
+    }
+    musicApiCall('play', { query: q });
+    document.getElementById('musicQueryInput').value = '';
+  }
+
+  function quickPlayPreset(query) {
+    if (!currentVoiceState.in_vc) {
+      toast('⚠️ Not in VC', 'Please join a Discord voice channel first!', true);
+      return;
+    }
+    musicApiCall('play', { query });
+  }
+
+  function togglePauseResumeMusic() {
+    if (currentMusicState.is_paused) musicApiCall('resume');
+    else musicApiCall('pause');
+  }
+
+  function stopMusic() { musicApiCall('stop'); }
+
+  function changeMusicVolume(val) {
+    document.getElementById('musicVolumeVal').textContent = `${val}%`;
+    document.getElementById('musicVolumeIcon').textContent = val == 0 ? '🔇' : val < 50 ? '🔉' : '🔊';
+    musicApiCall('volume', { volume: parseInt(val) });
+  }
+
+  // Voice Modal open/close
+  function openVoiceModal() {
+    document.getElementById('voiceModalOverlay').style.display = 'flex';
+    renderVcStatusBanner(currentVoiceState);
+    renderMusicPlayer(currentMusicState);
+  }
+
+  function closeVoiceModal() {
+    document.getElementById('voiceModalOverlay').style.display = 'none';
+  }
+
+  function handleVoiceModalOverlayClick(e) {
+    if (e.target === e.currentTarget) closeVoiceModal();
+  }
+
+  // Socket events for live VC/Music updates
+  socket.on('voice_state_update', vs => {
+    currentVoiceState = vs;
+    renderVcStatusBanner(vs);
+  });
+
+  socket.on('music_state_update', ms => {
+    currentMusicState = ms;
+    renderMusicPlayer(ms);
+  });
+
   socket.on('rpc_update', data => {
     currentRpc = data;
     loadRpcFormFromConfig(data);
@@ -2411,6 +2698,14 @@
     if (d.rpc_config) {
       currentRpc = d.rpc_config;
       loadRpcFormFromConfig(currentRpc);
+    }
+    if (d.voice_state) {
+      currentVoiceState = d.voice_state;
+      renderVcStatusBanner(currentVoiceState);
+    }
+    if (d.music_state) {
+      currentMusicState = d.music_state;
+      renderMusicPlayer(currentMusicState);
     }
     if (d.conversations) {
       d.conversations.forEach(c => {

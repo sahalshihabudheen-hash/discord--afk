@@ -2,6 +2,7 @@
 Flask + SocketIO dashboard — real-time conversation monitor.
 """
 
+import asyncio
 from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO
 from bot.rpc_manager import RPCManager
@@ -31,6 +32,21 @@ def create_app(config: dict):
             "total_messages": 0,
             "total_ai_replies": 0,
         },
+        "voice_state": {
+            "in_vc": False,
+            "channel_id": None,
+            "channel_name": None,
+            "guild_id": None,
+            "guild_name": None,
+            "self_mute": False,
+            "self_deaf": False,
+        },
+        "music_state": {
+            "is_playing": False,
+            "is_paused": False,
+            "volume": 80,
+            "current_track": None,
+        },
         "log": [],  # Recent events log (last 200)
     }
 
@@ -47,6 +63,10 @@ def create_app(config: dict):
             state["afk_mode"] = data.get("afk_mode", True)
         elif event == "rpc_update":
             state["rpc_config"] = data
+        elif event == "voice_state_update":
+            state["voice_state"] = data
+        elif event == "music_state_update":
+            state["music_state"] = data
 
         socketio.emit(event, data)
 
@@ -69,6 +89,8 @@ def create_app(config: dict):
                 "rpc_config": state["rpc_config"],
                 "conversations": state["conversations"],
                 "stats": state["stats"],
+                "voice_state": state["voice_state"],
+                "music_state": state["music_state"],
             }
         )
 
@@ -199,6 +221,63 @@ def create_app(config: dict):
             socketio.emit("rpc_update", state["rpc_config"])
             return jsonify({"success": True, "rpc_config": state["rpc_config"]})
 
+    # ── Voice & Music Streaming Routes ─────────────────────────────────
+
+    @app.route("/api/music/play", methods=["POST"])
+    def music_play():
+        data = request.get_json() or {}
+        query = data.get("query", "").strip()
+        if not query:
+            return jsonify({"success": False, "error": "Query cannot be empty"}), 400
+
+        bot = state.get("bot")
+        if not bot or not hasattr(bot, "voice_manager"):
+            return jsonify({"success": False, "error": "Bot is not connected"}), 503
+
+        fut = asyncio.run_coroutine_threadsafe(
+            bot.voice_manager.play(query),
+            bot.loop
+        )
+        try:
+            res = fut.result(timeout=20)
+            return jsonify(res)
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)}), 500
+
+    @app.route("/api/music/pause", methods=["POST"])
+    def music_pause():
+        bot = state.get("bot")
+        if bot and hasattr(bot, "voice_manager"):
+            success = bot.voice_manager.pause()
+            return jsonify({"success": success})
+        return jsonify({"success": False, "error": "Bot is not connected"}), 503
+
+    @app.route("/api/music/resume", methods=["POST"])
+    def music_resume():
+        bot = state.get("bot")
+        if bot and hasattr(bot, "voice_manager"):
+            success = bot.voice_manager.resume()
+            return jsonify({"success": success})
+        return jsonify({"success": False, "error": "Bot is not connected"}), 503
+
+    @app.route("/api/music/stop", methods=["POST"])
+    def music_stop():
+        bot = state.get("bot")
+        if bot and hasattr(bot, "voice_manager"):
+            success = bot.voice_manager.stop()
+            return jsonify({"success": success})
+        return jsonify({"success": False, "error": "Bot is not connected"}), 503
+
+    @app.route("/api/music/volume", methods=["POST"])
+    def music_volume():
+        data = request.get_json() or {}
+        vol = data.get("volume", 80)
+        bot = state.get("bot")
+        if bot and hasattr(bot, "voice_manager"):
+            success = bot.voice_manager.set_volume(vol)
+            return jsonify({"success": success, "volume": bot.voice_manager.volume})
+        return jsonify({"success": False, "error": "Bot is not connected"}), 503
+
     # ── SocketIO events ───────────────────────────────────────────────
 
     @socketio.on("connect")
@@ -210,6 +289,8 @@ def create_app(config: dict):
                 "rpc_config": state["rpc_config"],
                 "conversations": state["conversations"],
                 "stats": state["stats"],
+                "voice_state": state["voice_state"],
+                "music_state": state["music_state"],
                 "log": state["log"][:50],
             },
         )
