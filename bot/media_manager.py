@@ -13,8 +13,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_MEDIA_DIR = os.path.join(BASE_DIR, "dashboard", "static", "media")
 WEB_MEDIA_DIR = os.path.join(BASE_DIR, "web", "public", "media")
 
-# Max image size to encode as base64 for cloud sync (1.2 MB) to prevent huge payloads
-MAX_BASE64_IMAGE_BYTES = 1200 * 1024
+# Base64 encoding disabled — storing data URIs in conversations.json inflates it to 20-30 MB
+# and causes [Errno 22] Invalid argument on Windows. Always use local_url instead.
+MAX_BASE64_IMAGE_BYTES = 0
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm", ".m4v", ".mkv"}

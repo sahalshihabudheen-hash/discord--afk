@@ -136,7 +136,7 @@ class AFKBot(discord.Client):
                             for a in msg.attachments:
                                 try:
                                     meta = await process_attachment(a, msg_id_str)
-                                    att_urls.append(meta.get("data_url") or meta.get("local_url") or meta.get("url"))
+                                    att_urls.append(meta.get("local_url") or meta.get("url"))
                                     att_meta.append(meta)
                                 except Exception:
                                     if hasattr(a, "url") and a.url:
@@ -463,7 +463,7 @@ class AFKBot(discord.Client):
             for a in message.attachments:
                 try:
                     meta = await process_attachment(a, str(message.id))
-                    attachment_urls.append(meta.get("data_url") or meta.get("local_url") or meta.get("url"))
+                    attachment_urls.append(meta.get("local_url") or meta.get("url"))
                     attachments_meta.append(meta)
                 except Exception as att_err:
                     print(f"[Media Error] {att_err}")

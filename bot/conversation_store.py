@@ -42,8 +42,34 @@ class ConversationStore:
         try:
             os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
             self._store["_settings"] = self._settings
-            with open(self.file_path, "w", encoding="utf-8") as f:
-                json.dump(self._store, f, indent=2, ensure_ascii=False)
+
+            # Build a clean copy — strip any data_url fields from attachments_meta
+            # to keep the JSON small (data_url can be 1-2 MB per image)
+            clean_store = {}
+            for uid, convo in self._store.items():
+                if uid.startswith("_") or not isinstance(convo, dict) or "messages" not in convo:
+                    clean_store[uid] = convo
+                    continue
+                clean_convo = dict(convo)
+                clean_msgs = []
+                for msg in convo["messages"]:
+                    clean_msg = dict(msg)
+                    if clean_msg.get("attachments_meta"):
+                        clean_msg["attachments_meta"] = [
+                            {k: v for k, v in m.items() if k != "data_url"}
+                            for m in clean_msg["attachments_meta"]
+                        ]
+                    clean_msgs.append(clean_msg)
+                clean_convo["messages"] = clean_msgs
+                clean_store[uid] = clean_convo
+            clean_store["_settings"] = self._settings
+
+            # Atomic write: write to .tmp then replace, so a crash mid-write
+            # never leaves a corrupted conversations.json
+            tmp_path = self.file_path + ".tmp"
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(clean_store, f, indent=2, ensure_ascii=False)
+            os.replace(tmp_path, self.file_path)
         except Exception as e:
             print(f"[Store] Error saving conversations: {e}")
 
