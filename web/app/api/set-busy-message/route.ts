@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { setPendingBusyMessage, getGlobalState } from "@/lib/store";
+import { supabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +14,16 @@ export async function POST(req: Request) {
       );
     }
 
-    setPendingBusyMessage(busy_message.trim());
+    const trimmed = busy_message.trim();
+    setPendingBusyMessage(trimmed);
+
+    try {
+      await supabase.from("bot_state").upsert({ key: "busy_message", value: trimmed }, { onConflict: "key" });
+    } catch (_) {}
+
     return NextResponse.json({
       success: true,
-      busy_message: busy_message.trim(),
+      busy_message: trimmed,
     });
   } catch (error: any) {
     return NextResponse.json(

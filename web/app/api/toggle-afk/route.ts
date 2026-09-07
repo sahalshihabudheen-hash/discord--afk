@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { toggleAFK, getGlobalState } from "@/lib/store";
+import { supabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,10 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const newMode = toggleAFK(body.afk_mode);
     const state = getGlobalState();
+
+    try {
+      await supabase.from("bot_state").upsert({ key: "afk_mode", value: newMode }, { onConflict: "key" });
+    } catch (_) {}
 
     return NextResponse.json({
       success: true,

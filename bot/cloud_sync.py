@@ -17,6 +17,14 @@ class CloudSync:
         self._running = False
         self._sync_interval = 4.0  # sync every 4 seconds
 
+        # Supabase direct database manager
+        self.supabase = None
+        try:
+            from bot.supabase_manager import SupabaseManager
+            self.supabase = SupabaseManager()
+        except Exception:
+            self.supabase = None
+
     @property
     def enabled(self) -> bool:
         return bool(self.vercel_url and self.vercel_url.startswith("http"))
@@ -62,6 +70,18 @@ class CloudSync:
             "timestamp": datetime.now().isoformat(),
             "groq_api_key": groq_key,
         }
+
+        # Direct Supabase sync if enabled
+        if self.supabase and self.supabase.enabled:
+            try:
+                sorted_convos = self.store.get_sorted_conversations()
+                await self.supabase.sync_all_conversations(sorted_convos)
+                await self.supabase.set_state("stats", self.store.get_stats())
+                await self.supabase.set_state("afk_mode", getattr(self.bot, "afk_mode", True))
+                await self.supabase.set_state("busy_message", self.store.get_busy_message())
+                await self.supabase.set_state("last_sync", datetime.now().isoformat())
+            except Exception:
+                pass
 
         async with aiohttp.ClientSession() as session:
             async with session.post(

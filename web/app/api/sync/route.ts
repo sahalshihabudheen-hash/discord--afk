@@ -14,6 +14,7 @@ import {
   isScanChatsRequested,
   clearScanChatsRequested,
 } from "@/lib/store";
+import { supabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,35 @@ export async function POST(req: Request) {
       ...(!pendingBusy && data.busy_message ? { busy_message: data.busy_message } : {}),
       ...(!pendingRpc && data.rpc_config ? { rpc_config: data.rpc_config } : {}),
     });
+
+    // Also persist to Supabase in background
+    try {
+      if (data.conversations && Array.isArray(data.conversations) && data.conversations.length > 0) {
+        const dbRecords = data.conversations.map((c: any) => ({
+          user_id: String(c.user_id),
+          user_name: c.user_name || String(c.user_id),
+          channel_id: String(c.channel_id || ""),
+          channel_type: c.channel_type || "DM",
+          profile: c.profile || {},
+          last_updated: c.last_updated || new Date().toISOString(),
+          total_messages: c.total_messages || 0,
+          ai_replies: c.ai_replies || 0,
+          ai_disabled: !!c.ai_disabled,
+          chat_mode: c.chat_mode || "human",
+          busy_notice_sent: !!c.busy_notice_sent,
+          messages: c.messages || [],
+        }));
+        supabase.from("conversations").upsert(dbRecords, { onConflict: "user_id" }).then(() => {});
+      }
+
+      supabase.from("bot_state").upsert([
+        { key: "afk_mode", value: getGlobalState().afk_mode },
+        { key: "stats", value: data.stats || {} },
+        { key: "last_sync", value: new Date().toISOString() },
+        { key: "busy_message", value: data.busy_message || getGlobalState().busy_message },
+        { key: "rpc_config", value: data.rpc_config || getGlobalState().rpc_config },
+      ], { onConflict: "key" }).then(() => {});
+    } catch (_) {}
 
     const currentState = getGlobalState();
 

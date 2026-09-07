@@ -103,6 +103,7 @@ async def process_attachment(attachment_obj_or_url, message_id: str = "") -> Dic
     local_url = f"/static/media/{safe_name}"
     data_url = None
 
+    cloud_url = None
     if data:
         try:
             with open(local_path, "wb") as f:
@@ -117,14 +118,20 @@ async def process_attachment(attachment_obj_or_url, message_id: str = "") -> Dic
         except Exception as e:
             print(f"[MediaManager] Failed to write local media {local_path}: {e}")
 
-        if is_image and len(data) <= MAX_BASE64_IMAGE_BYTES:
-            b64 = base64.b64encode(data).decode("utf-8")
-            data_url = f"data:{content_type};base64,{b64}"
+        # Upload to Supabase Storage if configured
+        try:
+            from bot.supabase_manager import SupabaseManager
+            sb = SupabaseManager()
+            if sb.enabled:
+                cloud_url = await sb.upload_media(data, safe_name, content_type)
+        except Exception:
+            pass
 
     return {
-        "url": url,
-        "local_url": local_url,
-        "data_url": data_url,
+        "url": cloud_url or url,
+        "local_url": cloud_url or local_url,
+        "cloud_url": cloud_url,
+        "data_url": None,
         "filename": filename,
         "safe_name": safe_name,
         "content_type": content_type,

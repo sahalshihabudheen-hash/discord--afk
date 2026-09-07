@@ -26,8 +26,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# OS / Editor
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
+# Media
+dashboard/static/media/
+web/public/media/
