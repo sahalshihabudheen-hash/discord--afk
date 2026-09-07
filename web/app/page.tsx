@@ -655,8 +655,8 @@ export default function Dashboard() {
 
   const selectedConvo = state?.conversations.find((c) => c.user_id === selectedUserId);
   const filteredConversations = (state?.conversations || []).filter((c) =>
-    c.user_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.last_message.toLowerCase().includes(searchQuery.toLowerCase())
+    (c.user_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (c.last_message || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const formatTime = (isoString?: string) => {

@@ -28,19 +28,56 @@ export async function GET() {
         botConnected = diff < 45000;
       }
 
+      // Compute last_message and avatar for every conversation
+      const formattedConvos = convos.map((c: any) => {
+        let lastMsg = c.last_message || "";
+        if (!lastMsg && Array.isArray(c.messages) && c.messages.length > 0) {
+          const lm = c.messages[c.messages.length - 1];
+          if (lm.is_deleted) {
+            lastMsg = `🗑️ [Deleted]: ${lm.content || ""}`;
+          } else if (lm.attachments && lm.attachments.length > 0) {
+            lastMsg = "📷 [Attachment / Media]";
+          } else if (lm.stickers && lm.stickers.length > 0) {
+            lastMsg = "🎨 [Sticker]";
+          } else {
+            lastMsg = lm.content || "";
+          }
+        }
+        return {
+          ...c,
+          last_message: lastMsg,
+          avatar: c.avatar || c.profile?.avatar || null,
+        };
+      });
+
+      // Calculate stats dynamically if bot_state stats has 0
+      let stats = stateMap["stats"] || memoryState.stats;
+      if (!stats || !stats.total_conversations) {
+        const totalMsgs = convos.reduce(
+          (sum: number, c: any) => sum + (c.total_messages || (Array.isArray(c.messages) ? c.messages.length : 0)),
+          0
+        );
+        const totalReplies = convos.reduce((sum: number, c: any) => sum + (c.ai_replies || 0), 0);
+        stats = {
+          total_conversations: convos.length,
+          total_messages: totalMsgs,
+          total_ai_replies: totalReplies,
+        };
+      }
+
       return NextResponse.json({
         ...memoryState,
         afk_mode: stateMap["afk_mode"] !== undefined ? stateMap["afk_mode"] : memoryState.afk_mode,
         busy_message: stateMap["busy_message"] || memoryState.busy_message,
         rpc_config: stateMap["rpc_config"] || memoryState.rpc_config,
-        stats: stateMap["stats"] || memoryState.stats,
+        stats: stats,
         last_sync: lastSync,
         bot_connected: botConnected,
-        conversations: convos,
+        conversations: formattedConvos,
       });
     }
   } catch (e) {
-    // Fallback to in-memory store
+    console.error("Supabase state fetch error:", e);
   }
 
   const state = getGlobalState();

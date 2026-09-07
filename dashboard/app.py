@@ -99,6 +99,8 @@ def create_app(config: dict):
         busy_msg = "SAHAL_PRO is busy and working on something"
         if state.get("bot") and hasattr(state["bot"], "store"):
             busy_msg = state["bot"].store.get_busy_message()
+            state["conversations"] = state["bot"].store.get_sorted_conversations()
+            state["stats"] = state["bot"].store.get_stats()
         return jsonify(
             {
                 "afk_mode": state["afk_mode"],

@@ -8,7 +8,10 @@ const DEFAULT_KEY = typeof atob !== "undefined"
   ? atob("c2Jfc2VjcmV0X2ltTllvaGhBeDRUMUF1QkZSb0xlRUFfdFB1OWxvcUw=")
   : Buffer.from("c2Jfc2VjcmV0X2ltTllvaGhBeDRUMUF1QkZSb0xlRUFfdFB1OWxvcUw=", "base64").toString("utf-8");
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || DEFAULT_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || DEFAULT_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: { persistSession: false },
+});
+

@@ -48,6 +48,43 @@ class CloudSync:
     def stop(self):
         self._running = False
 
+    async def sync_conversation_fast(self, user_id: str):
+        """Immediately push a single updated conversation and latest stats to Supabase and Vercel in < 300ms."""
+        convo = self.store.get_conversation(user_id)
+        if not convo:
+            return
+
+        # Direct Supabase instant upsert
+        if self.supabase and self.supabase.enabled:
+            try:
+                convo_record = dict(convo)
+                convo_record["user_id"] = str(user_id)
+                await self.supabase.save_conversation(convo_record)
+                await self.supabase.set_state("stats", self.store.get_stats())
+                await self.supabase.set_state("last_sync", datetime.now().isoformat())
+            except Exception as se:
+                print(f"[Cloud Sync] Fast Supabase sync error for {user_id}: {se}")
+
+        # Also push to Vercel in background if enabled
+        if self.enabled:
+            try:
+                payload = {
+                    "owner_name": self.owner_name,
+                    "stats": self.store.get_stats(),
+                    "conversations": self.store.get_sorted_conversations()[:25],
+                    "busy_message": self.store.get_busy_message() if hasattr(self.store, "get_busy_message") else "SAHAL_PRO is busy and working on something",
+                    "timestamp": datetime.now().isoformat(),
+                }
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        f"{self.vercel_url}/api/sync",
+                        json=payload,
+                        timeout=aiohttp.ClientTimeout(total=4),
+                    ) as resp:
+                        pass
+            except Exception:
+                pass
+
     async def sync_once(self):
         """Push full state to Vercel and apply any remote AFK toggle."""
         if not self.enabled:

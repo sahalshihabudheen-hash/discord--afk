@@ -71,17 +71,19 @@ export async function POST(req: Request) {
           busy_notice_sent: !!c.busy_notice_sent,
           messages: c.messages || [],
         }));
-        supabase.from("conversations").upsert(dbRecords, { onConflict: "user_id" }).then(() => {});
+        await supabase.from("conversations").upsert(dbRecords, { onConflict: "user_id" });
       }
 
-      supabase.from("bot_state").upsert([
+      await supabase.from("bot_state").upsert([
         { key: "afk_mode", value: getGlobalState().afk_mode },
         { key: "stats", value: data.stats || {} },
         { key: "last_sync", value: new Date().toISOString() },
         { key: "busy_message", value: data.busy_message || getGlobalState().busy_message },
         { key: "rpc_config", value: data.rpc_config || getGlobalState().rpc_config },
-      ], { onConflict: "key" }).then(() => {});
-    } catch (_) {}
+      ], { onConflict: "key" });
+    } catch (dbErr) {
+      console.error("Supabase sync upsert error:", dbErr);
+    }
 
     const currentState = getGlobalState();
 

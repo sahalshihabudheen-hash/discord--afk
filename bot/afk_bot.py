@@ -278,6 +278,8 @@ class AFKBot(discord.Client):
             )
             self.emit("stats_update", self.store.get_stats())
             self.emit("conversations_update", self.store.get_sorted_conversations())
+            if hasattr(self, "cloud_sync"):
+                asyncio.create_task(self.cloud_sync.sync_conversation_fast(user_id))
             return True
         except Exception as e:
             print(f"[Manual Send] Failed to send message: {e}")
@@ -545,6 +547,10 @@ class AFKBot(discord.Client):
                 "reply_to": reply_to,
             },
         )
+        self.emit("stats_update", self.store.get_stats())
+        self.emit("conversations_update", self.store.get_sorted_conversations())
+        if hasattr(self, "cloud_sync"):
+            asyncio.create_task(self.cloud_sync.sync_conversation_fast(convo_id))
 
         # Handle AI turned OFF (either globally via AFK toggle or per-conversation)
         is_ai_off = (not self.afk_mode) or self.store.is_ai_disabled(convo_id)
@@ -671,6 +677,8 @@ class AFKBot(discord.Client):
                     )
                     self.emit("stats_update", self.store.get_stats())
                     self.emit("conversations_update", self.store.get_sorted_conversations())
+                    if hasattr(self, "cloud_sync"):
+                        asyncio.create_task(self.cloud_sync.sync_conversation_fast(convo_id))
                     return
 
             # Get reply from Groq based on conversation chat_mode
@@ -725,6 +733,8 @@ class AFKBot(discord.Client):
             # Push updated stats and conversation list to dashboard
             self.emit("stats_update", self.store.get_stats())
             self.emit("conversations_update", self.store.get_sorted_conversations())
+            if hasattr(self, "cloud_sync"):
+                asyncio.create_task(self.cloud_sync.sync_conversation_fast(convo_id))
 
         except Exception as e:
             print(f"[Error] Failed to process message from {user_name} in {convo_name}: {e}")
@@ -756,6 +766,8 @@ class AFKBot(discord.Client):
         self.store.add_reaction(convo_id, message_id, emoji_str)
         self.emit("stats_update", self.store.get_stats())
         self.emit("conversations_update", self.store.get_sorted_conversations())
+        if hasattr(self, "cloud_sync"):
+            asyncio.create_task(self.cloud_sync.sync_conversation_fast(convo_id))
 
     async def on_message_delete(self, message: discord.Message):
         is_dm = isinstance(message.channel, discord.DMChannel)
@@ -801,8 +813,8 @@ class AFKBot(discord.Client):
 
         self.store.mark_deleted(str(message.id), convo_id=convo_id, fallback_msg=fallback_msg)
         self.emit("conversations_update", self.store.get_sorted_conversations())
-        if self.cloud_sync.enabled:
-            asyncio.create_task(self.cloud_sync.sync_once())
+        if hasattr(self, "cloud_sync"):
+            asyncio.create_task(self.cloud_sync.sync_conversation_fast(convo_id))
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
         is_dm = isinstance(after.channel, discord.DMChannel)
@@ -810,8 +822,12 @@ class AFKBot(discord.Client):
         if not (is_dm or is_group):
             return
 
+        convo_id = str(after.channel.id) if is_group else str(getattr(after.author, "id", "") or "")
+
         if before.content != after.content:
             self.store.mark_edited(str(after.id), after.content)
             self.emit("conversations_update", self.store.get_sorted_conversations())
+            if hasattr(self, "cloud_sync"):
+                asyncio.create_task(self.cloud_sync.sync_conversation_fast(convo_id))
 
 
