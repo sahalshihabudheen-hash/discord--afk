@@ -67,6 +67,11 @@ export async function GET() {
 
       return NextResponse.json({
         ...memoryState,
+        _debug: {
+          source: "supabase",
+          convosCount: convos.length,
+          botStateRowsCount: botStateRows?.length,
+        },
         afk_mode: stateMap["afk_mode"] !== undefined ? stateMap["afk_mode"] : memoryState.afk_mode,
         busy_message: stateMap["busy_message"] || memoryState.busy_message,
         rpc_config: stateMap["rpc_config"] || memoryState.rpc_config,
@@ -75,9 +80,25 @@ export async function GET() {
         bot_connected: botConnected,
         conversations: formattedConvos,
       });
+    } else {
+      console.warn("Supabase returned empty or error:", convosErr);
+      const memoryState = getGlobalState();
+      return NextResponse.json({
+        ...memoryState,
+        _debug: {
+          source: "fallback_empty",
+          convosErr: convosErr ? { message: convosErr.message, code: convosErr.code, details: convosErr.details } : null,
+          convosLength: convos ? convos.length : null,
+        },
+      });
     }
-  } catch (e) {
+  } catch (e: any) {
     console.error("Supabase state fetch error:", e);
+    const state = getGlobalState();
+    return NextResponse.json({
+      ...state,
+      _debug: { source: "exception", error: e?.message || String(e) },
+    });
   }
 
   const state = getGlobalState();
