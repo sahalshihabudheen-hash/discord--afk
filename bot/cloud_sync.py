@@ -58,6 +58,7 @@ class CloudSync:
             "rpc_config": getattr(self.bot, "rpc_manager", None).current_config if hasattr(self.bot, "rpc_manager") else None,
             "voice_state": getattr(self.bot, "voice_manager", None).get_voice_state() if hasattr(self.bot, "voice_manager") else None,
             "music_state": getattr(self.bot, "voice_manager", None).get_music_state() if hasattr(self.bot, "voice_manager") else None,
+            "busy_message": self.store.get_busy_message() if hasattr(self.store, "get_busy_message") else "SAHAL_PRO is busy and working on something",
             "timestamp": datetime.now().isoformat(),
             "groq_api_key": groq_key,
         }
@@ -120,3 +121,15 @@ class CloudSync:
                             action = cmd.get("action")
                             if action:
                                 asyncio.create_task(self.bot.execute_music_command(action, cmd))
+
+                    # Process busy message update configured from Vercel web app
+                    cloud_busy = data.get("busy_message")
+                    if cloud_busy and self.bot and hasattr(self.bot, "store") and hasattr(self.bot.store, "set_busy_message"):
+                        if cloud_busy != self.bot.store.get_busy_message():
+                            print(f"[Cloud Sync] 📝 Updating busy message from Vercel: {cloud_busy[:60]}")
+                            self.bot.store.set_busy_message(cloud_busy)
+
+                    # Process remote request to scan all chats
+                    if data.get("scan_chats_requested") and self.bot and hasattr(self.bot, "scan_all_chats"):
+                        print(f"[Cloud Sync] 🔄 Chat scan triggered from Vercel web app!")
+                        asyncio.create_task(self.bot.scan_all_chats())

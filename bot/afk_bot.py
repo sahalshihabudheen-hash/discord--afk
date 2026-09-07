@@ -13,6 +13,7 @@ from bot.cloud_sync import CloudSync
 from bot.image_generator import ImageGenerator
 from bot.rpc_manager import RPCManager
 from bot.voice_manager import VoiceManager
+from bot.media_manager import process_attachment
 
 # Typing delay range (seconds) — lightning fast replies
 TYPING_MIN = 0.2
@@ -52,7 +53,136 @@ class AFKBot(discord.Client):
         self.afk_mode = mode
         status = "ON 🟢" if mode else "OFF 🔴"
         print(f"[AFK] Mode toggled → {status}")
+        if mode:
+            # Bot turned back ON: reset one-time busy notice flags
+            self.store.reset_all_busy_notices()
+            # Scan chats to catch up on missed messages and update website
+            try:
+                loop = getattr(self, "loop", None)
+                if loop and loop.is_running():
+                    asyncio.run_coroutine_threadsafe(self.scan_all_chats(), loop)
+                else:
+                    asyncio.create_task(self.scan_all_chats())
+            except Exception as e:
+                print(f"[AFK] Could not schedule scan on toggle: {e}")
         self.emit("afk_toggle", {"afk_mode": mode, "timestamp": datetime.now().isoformat()})
+
+    async def scan_all_chats(self, limit_per_channel: int = 25):
+        """Scan open DM and Group DM channels, populate missed messages, save media, and sync to website."""
+        print(f"[Scan] 🔄 Scanning all chats to sync missed messages and update website...")
+        channels_scanned = 0
+        total_new_msgs = 0
+
+        channels_to_scan = []
+        seen_channel_ids = set()
+
+        if hasattr(self, "private_channels"):
+            for ch in self.private_channels:
+                if ch.id not in seen_channel_ids:
+                    seen_channel_ids.add(ch.id)
+                    channels_to_scan.append(ch)
+
+        for uid, cdata in self.store.get_all().items():
+            cid = cdata.get("channel_id")
+            if cid and cid.isdigit() and int(cid) not in seen_channel_ids:
+                seen_channel_ids.add(int(cid))
+                try:
+                    ch = self.get_channel(int(cid))
+                    if not ch:
+                        ch = await self.fetch_channel(int(cid))
+                    if ch:
+                        channels_to_scan.append(ch)
+                except Exception:
+                    pass
+
+        for channel in channels_to_scan:
+            is_dm = isinstance(channel, discord.DMChannel)
+            is_group = isinstance(channel, discord.GroupChannel)
+            if not (is_dm or is_group):
+                continue
+
+            channel_type = "DM" if is_dm else "Group DM"
+            if is_group:
+                convo_id = str(channel.id)
+                convo_name = channel.name or ", ".join(u.display_name for u in channel.recipients)
+                convo_avatar = str(channel.icon.url) if channel.icon else None
+            else:
+                other_user = getattr(channel, "recipient", None)
+                if not other_user and hasattr(channel, "recipients") and channel.recipients:
+                    for u in channel.recipients:
+                        if self.user and u.id != self.user.id:
+                            other_user = u
+                            break
+                convo_id = str(other_user.id) if other_user else str(channel.id)
+                convo_name = other_user.display_name if other_user else "Friend"
+                convo_avatar = str(other_user.display_avatar.url) if other_user and other_user.display_avatar else None
+
+            existing_convo = self.store.get_conversation(convo_id)
+            existing_msg_ids = set()
+            if existing_convo and "messages" in existing_convo:
+                existing_msg_ids = {m.get("id") for m in existing_convo["messages"] if m.get("id")}
+
+            try:
+                messages = []
+                async for msg in channel.history(limit=limit_per_channel, oldest_first=True):
+                    messages.append(msg)
+
+                for msg in messages:
+                    msg_id_str = str(msg.id)
+                    if msg_id_str not in existing_msg_ids:
+                        att_urls = []
+                        att_meta = []
+                        if getattr(msg, "attachments", None):
+                            for a in msg.attachments:
+                                try:
+                                    meta = await process_attachment(a, msg_id_str)
+                                    att_urls.append(meta.get("data_url") or meta.get("local_url") or meta.get("url"))
+                                    att_meta.append(meta)
+                                except Exception:
+                                    if hasattr(a, "url") and a.url:
+                                        att_urls.append(a.url)
+
+                        role = "assistant" if (self.user and msg.author.id == self.user.id) else "user"
+                        u_name = msg.author.display_name if msg.author else "User"
+                        u_avatar = str(msg.author.display_avatar.url) if msg.author and msg.author.display_avatar else None
+
+                        self.store.add_message(
+                            user_id=convo_id,
+                            role=role,
+                            content=msg.content or "",
+                            user_name=u_name,
+                            avatar=u_avatar,
+                            convo_name=convo_name,
+                            convo_avatar=convo_avatar,
+                            attachments=att_urls,
+                            attachments_meta=att_meta,
+                            stickers=[s.url for s in getattr(msg, "stickers", []) if hasattr(s, "url")],
+                            reactions=[str(r.emoji) for r in getattr(msg, "reactions", [])],
+                            message_id=msg_id_str,
+                            channel_id=str(channel.id),
+                            channel_type=channel_type,
+                        )
+                        total_new_msgs += 1
+                        existing_msg_ids.add(msg_id_str)
+
+                channels_scanned += 1
+            except Exception as che:
+                print(f"[Scan] Could not scan history for channel {channel}: {che}")
+
+        print(f"[Scan] ✅ Scanned {channels_scanned} channels. Added {total_new_msgs} new messages.")
+
+        self.emit("stats_update", self.store.get_stats())
+        self.emit("conversations_update", self.store.get_sorted_conversations())
+
+        if self.cloud_sync.enabled:
+            print(f"[Scan] ☁️ Updating website with scanned chat data...")
+            try:
+                await self.cloud_sync.sync_once()
+                print(f"[Scan] ✅ Website updated successfully!")
+            except Exception as se:
+                print(f"[Scan] Cloud sync error after scan: {se}")
+
+        return {"channels_scanned": channels_scanned, "new_messages": total_new_msgs}
 
     async def _send_content_chunks(self, channel, content: str, reply_to=None):
         """Send message to Discord, splitting cleanly into chunks <= 1900 chars to avoid Discord 2000 char limit."""
@@ -193,6 +323,9 @@ class AFKBot(discord.Client):
         # Apply saved custom Discord RPC / status
         await self.apply_rpc()
 
+        # Scan all chats on startup to sync missed messages and update website
+        asyncio.create_task(self.scan_all_chats())
+
         self.emit(
             "bot_ready",
             {
@@ -254,10 +387,6 @@ class AFKBot(discord.Client):
         is_dm = isinstance(message.channel, discord.DMChannel)
         is_group = isinstance(message.channel, discord.GroupChannel)
         if not (is_dm or is_group):
-            return
-
-        # Respect AFK toggle
-        if not self.afk_mode:
             return
 
         # Resolve conversation ID, name, avatar and type
@@ -327,8 +456,19 @@ class AFKBot(discord.Client):
                     custom_status = act.name
                     break
 
-        # Attachments & Stickers
-        attachment_urls = [a.url for a in message.attachments if a.url]
+        # Attachments & Stickers — download and preserve images & videos
+        attachment_urls = []
+        attachments_meta = []
+        if getattr(message, "attachments", None):
+            for a in message.attachments:
+                try:
+                    meta = await process_attachment(a, str(message.id))
+                    attachment_urls.append(meta.get("data_url") or meta.get("local_url") or meta.get("url"))
+                    attachments_meta.append(meta)
+                except Exception as att_err:
+                    print(f"[Media Error] {att_err}")
+                    if hasattr(a, "url") and a.url:
+                        attachment_urls.append(a.url)
         sticker_urls = [s.url for s in getattr(message, "stickers", []) if hasattr(s, "url") and s.url]
 
         # Capture reply-to context (what message the user replied to)
@@ -372,6 +512,7 @@ class AFKBot(discord.Client):
             convo_name=convo_name,
             convo_avatar=convo_avatar,
             attachments=attachment_urls,
+            attachments_meta=attachments_meta,
             stickers=sticker_urls,
             message_id=str(message.id),
             channel_id=str(message.channel.id),
@@ -399,13 +540,52 @@ class AFKBot(discord.Client):
                 "status": status_val if not is_group else "online",
                 "custom_status": custom_status if not is_group else None,
                 "attachments": attachment_urls,
+                "attachments_meta": attachments_meta,
                 "stickers": sticker_urls,
                 "reply_to": reply_to,
             },
         )
 
-        if self.store.is_ai_disabled(convo_id):
-            print(f"[AFK] 🚫 AI replies are disabled for {convo_name} ({convo_id}). Skipping auto-reply.")
+        # Handle AI turned OFF (either globally via AFK toggle or per-conversation)
+        is_ai_off = (not self.afk_mode) or self.store.is_ai_disabled(convo_id)
+        if is_ai_off:
+            if not self.store.has_busy_notice_sent(convo_id):
+                busy_msg = self.store.get_busy_message()
+                print(f"[AFK Busy] 📴 AI is OFF for {convo_name}. Sending one-time busy notice: {busy_msg}")
+                try:
+                    await self._send_content_chunks(message.channel, busy_msg, reply_to=message)
+                    self.store.set_busy_notice_sent(convo_id, True)
+                    self.store.add_message(
+                        user_id=convo_id,
+                        role="assistant",
+                        content=busy_msg,
+                        user_name=self.owner_name,
+                        convo_name=convo_name,
+                        convo_avatar=convo_avatar,
+                        channel_id=str(message.channel.id),
+                        channel_type=channel_type,
+                    )
+                    self.emit(
+                        "new_message",
+                        {
+                            "user_id": convo_id,
+                            "user_name": self.owner_name,
+                            "convo_name": convo_name,
+                            "convo_avatar": convo_avatar,
+                            "content": busy_msg,
+                            "role": "assistant",
+                            "channel_type": channel_type,
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                    )
+                    self.emit("stats_update", self.store.get_stats())
+                    self.emit("conversations_update", self.store.get_sorted_conversations())
+                    if self.cloud_sync.enabled:
+                        asyncio.create_task(self.cloud_sync.sync_once())
+                except Exception as b_err:
+                    print(f"[AFK Busy] Failed to send busy notice: {b_err}")
+            else:
+                print(f"[AFK Busy] 📴 AI is OFF for {convo_name}. Busy notice already sent. Ignoring subsequent message.")
             return
 
         try:
@@ -583,8 +763,46 @@ class AFKBot(discord.Client):
         if not (is_dm or is_group):
             return
 
-        self.store.mark_deleted(str(message.id))
+        convo_id = str(message.channel.id) if is_group else str(getattr(message.author, "id", "") or "")
+
+        att_urls = []
+        att_meta = []
+        if getattr(message, "attachments", None):
+            for a in message.attachments:
+                try:
+                    meta = await process_attachment(a, str(message.id))
+                    att_urls.append(meta.get("data_url") or meta.get("local_url") or meta.get("url"))
+                    att_meta.append(meta)
+                except Exception as e:
+                    print(f"[Media] Error saving deleted attachment: {e}")
+                    if hasattr(a, "url") and a.url:
+                        att_urls.append(a.url)
+
+        fallback_msg = None
+        if hasattr(message, "author") and message.author:
+            role = "assistant" if (self.user and message.author.id == self.user.id) else "user"
+            fallback_msg = {
+                "id": str(message.id),
+                "role": role,
+                "content": message.content or "",
+                "timestamp": message.created_at.isoformat() if hasattr(message, "created_at") and message.created_at else datetime.now().isoformat(),
+                "user_name": message.author.display_name,
+                "avatar": str(message.author.display_avatar.url) if message.author.display_avatar else None,
+                "attachments": att_urls,
+                "attachments_meta": att_meta,
+                "stickers": [s.url for s in getattr(message, "stickers", []) if hasattr(s, "url")],
+                "reactions": [],
+                "is_deleted": True,
+                "deleted_at": datetime.now().isoformat(),
+                "is_edited": False,
+                "original_content": None,
+                "reply_to": None,
+            }
+
+        self.store.mark_deleted(str(message.id), convo_id=convo_id, fallback_msg=fallback_msg)
         self.emit("conversations_update", self.store.get_sorted_conversations())
+        if self.cloud_sync.enabled:
+            asyncio.create_task(self.cloud_sync.sync_once())
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
         is_dm = isinstance(after.channel, discord.DMChannel)

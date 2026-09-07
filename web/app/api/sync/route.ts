@@ -9,6 +9,10 @@ import {
   setSyncedGroqKey,
   getPendingMusicCommands,
   clearPendingMusicCommands,
+  getPendingBusyMessage,
+  clearPendingBusyMessage,
+  isScanChatsRequested,
+  clearScanChatsRequested,
 } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +27,16 @@ export async function POST(req: Request) {
     if (pendingRpc) {
       clearPendingRpc();
     }
+
+    const pendingBusy = getPendingBusyMessage();
+    if (pendingBusy) {
+      clearPendingBusyMessage();
+    }
+
+    const scanRequested = isScanChatsRequested();
+    if (scanRequested) {
+      clearScanChatsRequested();
+    }
     
     // Update state from local PC bot
     updateGlobalState({
@@ -35,6 +49,7 @@ export async function POST(req: Request) {
       conversations: data.conversations || [],
       voice_state: data.voice_state || undefined,
       music_state: data.music_state || undefined,
+      ...(!pendingBusy && data.busy_message ? { busy_message: data.busy_message } : {}),
       ...(!pendingRpc && data.rpc_config ? { rpc_config: data.rpc_config } : {}),
     });
 
@@ -61,11 +76,13 @@ export async function POST(req: Request) {
       }
     });
 
-    // Return the cloud's desired AFK mode, pending RPC config, music commands & chat modes back to the bot
+    // Return the cloud's desired AFK mode, pending RPC config, busy message, music commands & chat modes back to the bot
     return NextResponse.json({
       success: true,
       afk_mode: currentState.afk_mode,
       rpc_config: pendingRpc || null,
+      busy_message: pendingBusy || currentState.busy_message || null,
+      scan_chats_requested: scanRequested,
       disabled_convo_ids: disabledConvoIds,
       chat_modes: chatModes,
       timestamp: new Date().toISOString(),

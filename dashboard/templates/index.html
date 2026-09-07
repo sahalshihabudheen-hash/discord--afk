@@ -1224,6 +1224,10 @@
       filter: brightness(1.1);
       box-shadow: 0 0 16px rgba(79,142,247,0.35);
     }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
 
     /* ── Responsive ────────────────────────────────────────── */
     @media (max-width: 780px) {
@@ -1274,6 +1278,16 @@
       <span id="topbarVoiceIcon">🎧</span>
       <span id="topbarVoiceLabel">Voice Channel</span>
       <span class="rpc-status-dot offline" id="topbarVoiceStatusDot" style="background: #64748b;"></span>
+    </button>
+
+    <button class="rpc-topbar-btn" id="scanChatsBtn" onclick="triggerScanChats()" title="Scan all open DM and Group DM channels to catch up on missed messages and update website" style="margin-left: 2px;">
+      <span id="scanChatsIcon">🔄</span>
+      <span id="scanChatsLabel">Scan Chats</span>
+    </button>
+
+    <button class="rpc-topbar-btn" id="openBusyBtn" onclick="openBusyModal()" title="Customize One-Time Busy Message (When AI is OFF)" style="margin-left: 2px;">
+      <span>📴</span>
+      <span>Busy Auto-Reply</span>
     </button>
 
     <div class="afk-btn" id="afkBtn" onclick="toggleAFK()" role="button" aria-pressed="{{ 'true' if afk_mode else 'false' }}">
@@ -1581,6 +1595,43 @@
   </div>
 </div>
 
+<!-- ── Busy Auto-Reply (When AI is OFF) Modal ─────────────────── -->
+<div class="modal-overlay" id="busyModalOverlay" onclick="handleBusyModalOverlayClick(event)">
+  <div class="rpc-modal" id="busyModal" style="max-width: 580px;">
+    <div class="rpc-modal-head">
+      <div class="rpc-modal-title">
+        <span>📴</span> Busy Auto-Reply Settings (When AI is OFF)
+      </div>
+      <button class="rpc-modal-close" onclick="closeBusyModal()" title="Close">✕</button>
+    </div>
+
+    <div class="rpc-modal-body" style="grid-template-columns: 1fr; padding: 20px; gap: 16px;">
+      <div style="background: rgba(79, 142, 247, 0.08); border-left: 3px solid var(--accent); padding: 12px 14px; border-radius: 0 8px 8px 0; font-size: 13px; color: var(--text-2); line-height: 1.5;">
+        ℹ️ <strong>How this works:</strong> When you turn off AI for any DM or Group DM (or when the entire bot AFK mode is turned OFF), this custom message will automatically be sent <strong>EXACTLY ONCE</strong> when someone sends you a message. After that single notice, the bot stays completely quiet until AI is turned back on.
+      </div>
+
+      <div class="rpc-input-group">
+        <label style="font-size: 12px; font-weight: 700; color: var(--text-2);">Custom Busy Message</label>
+        <textarea id="busyMessageInput" rows="3" class="rpc-input" style="height: auto; resize: vertical; line-height: 1.5; font-family: inherit; padding: 10px;" placeholder="SAHAL_PRO is busy and working on something">{{ busy_message or 'SAHAL_PRO is busy and working on something' }}</textarea>
+      </div>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <span style="font-size: 11px; color: var(--text-3); align-self: center;">Quick presets:</span>
+        <button type="button" class="chip" onclick="setBusySuggestion('SAHAL_PRO is busy and working on something')">Default (Sahal Busy)</button>
+        <button type="button" class="chip" onclick="setBusySuggestion('Working on a project right now, will get back to you soon!')">Project Work</button>
+        <button type="button" class="chip" onclick="setBusySuggestion('Hey, tied up with studies right now. Hit you up later!')">Studying</button>
+      </div>
+    </div>
+
+    <div class="rpc-modal-foot">
+      <button class="btn-secondary" onclick="closeBusyModal()">Cancel</button>
+      <button class="btn-primary" id="saveBusyBtn" onclick="saveBusyMessage()">
+        <span>💾</span> Save Message
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Toasts ────────────────────────────────────────────── -->
 <div id="toasts"></div>
 
@@ -1600,6 +1651,11 @@
     afkMode = data.afk_mode;
     renderAFKBtn();
     if (data.stats) renderStats(data.stats);
+    if (data.busy_message) {
+      busyMessage = data.busy_message;
+      const inp = document.getElementById('busyMessageInput');
+      if (inp) inp.value = busyMessage;
+    }
     if (data.conversations) {
       data.conversations.forEach(c => {
         convos[c.user_id] = { ...c, messages: c.messages || [] };
@@ -1607,6 +1663,101 @@
       renderConvoList();
     }
   });
+
+  socket.on('busy_message_update', data => {
+    if (data.busy_message) {
+      busyMessage = data.busy_message;
+      const inp = document.getElementById('busyMessageInput');
+      if (inp) inp.value = busyMessage;
+    }
+  });
+
+  // ── Busy Auto-Reply Management ────────────────────────────
+  let busyMessage = "{{ busy_message or 'SAHAL_PRO is busy and working on something' }}";
+
+  function openBusyModal() {
+    const inp = document.getElementById('busyMessageInput');
+    if (inp) inp.value = busyMessage;
+    const overlay = document.getElementById('busyModalOverlay');
+    if (overlay) overlay.classList.add('open');
+  }
+
+  function closeBusyModal() {
+    const overlay = document.getElementById('busyModalOverlay');
+    if (overlay) overlay.classList.remove('open');
+  }
+
+  function handleBusyModalOverlayClick(e) {
+    if (e.target.id === 'busyModalOverlay') closeBusyModal();
+  }
+
+  function setBusySuggestion(txt) {
+    const inp = document.getElementById('busyMessageInput');
+    if (inp) {
+      inp.value = txt;
+      inp.focus();
+    }
+  }
+
+  async function saveBusyMessage() {
+    const inp = document.getElementById('busyMessageInput');
+    const btn = document.getElementById('saveBusyBtn');
+    const val = (inp ? inp.value : '').trim();
+    if (!val) {
+      toast('⚠️ Warning', 'Busy message cannot be empty', true);
+      return;
+    }
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch('/api/set-busy-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ busy_message: val }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        busyMessage = data.busy_message;
+        toast('✅ Saved', 'Busy auto-reply message updated!');
+        closeBusyModal();
+      } else {
+        toast('❌ Error', data.error || 'Failed to save busy message', true);
+      }
+    } catch (err) {
+      toast('❌ Error', 'Network error saving busy message', true);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  // ── Scan All Chats ────────────────────────────────────────
+  async function triggerScanChats() {
+    const btn = document.getElementById('scanChatsBtn');
+    const label = document.getElementById('scanChatsLabel');
+    const icon = document.getElementById('scanChatsIcon');
+    if (btn) btn.disabled = true;
+    if (label) label.textContent = 'Scanning...';
+    if (icon) icon.style.animation = 'spin 1s linear infinite';
+
+    try {
+      toast('🔄 Scanning Chats', 'Scanning all open channels to sync missed messages and update website...');
+      const res = await fetch('/api/scan-chats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast('✅ Scan Complete', `Scanned ${data.channels_scanned} channels! Added ${data.new_messages} messages and updated website.`);
+      } else {
+        toast('❌ Scan Error', data.error || 'Failed to scan chats', true);
+      }
+    } catch (err) {
+      toast('❌ Error', 'Network error during chat scan', true);
+    } finally {
+      if (btn) btn.disabled = false;
+      if (label) label.textContent = 'Scan Chats';
+      if (icon) icon.style.animation = '';
+    }
+  }
 
   socket.on('new_message', data => {
     const uid = data.user_id;
@@ -1881,14 +2032,32 @@
     const isDeleted = data.is_deleted;
     const isEdited = data.is_edited;
 
-    // Helper: detect plain image/gif URLs in text
+    // Helpers: detect video vs media URLs
+    function isVideoUrl(url) {
+      if (!url) return false;
+      const lower = url.toLowerCase();
+      return lower.match(/\.(mp4|webm|mov|m4v|mkv)(\?.*)?$/) || lower.startsWith('data:video/');
+    }
+
     function isMediaUrl(url) {
       if (!url) return false;
       const lower = url.toLowerCase();
-      return lower.match(/\.(gif|png|jpg|jpeg|webp|mp4)(\?.*)?$/) ||
+      return lower.match(/\.(gif|png|jpg|jpeg|webp|bmp|mp4|webm|mov)(\?.*)?$/) ||
+        lower.startsWith('data:image/') || lower.startsWith('data:video/') ||
         lower.includes('tenor.com') || lower.includes('giphy.com') ||
         lower.includes('klipy.com') || lower.includes('imgur.com') ||
-        lower.includes('cdn.discordapp.com');
+        lower.includes('cdn.discordapp.com') || lower.includes('/static/media/') || lower.includes('/media/');
+    }
+
+    function renderAttachmentItem(url, isDel) {
+      if (isVideoUrl(url)) {
+        return `<video controls src="${url}" style="max-width:280px;width:100%;border-radius:10px;display:block;margin-top:4px;${isDel ? 'border:1px solid rgba(248,113,113,0.5);' : 'border:1px solid var(--border);'}"></video>`;
+      } else if (isMediaUrl(url)) {
+        return `<img src="${url}" alt="Attachment" style="max-width:280px;border-radius:10px;display:block;margin-top:4px;${isDel ? 'border:1px solid rgba(248,113,113,0.5);' : ''}" loading="lazy" onerror="this.parentElement.innerHTML='<a href=${url} target=_blank style=color:var(--accent)>📎 View Attachment</a>'"/>`;
+      } else {
+        const name = url.split('/').pop().split('?')[0] || 'Attachment';
+        return `<a href="${url}" target="_blank" style="color:var(--accent);font-size:12px;">📎 ${esc(name)}</a>`;
+      }
     }
 
     // Trim URL-only content
@@ -1904,8 +2073,16 @@
 
     let bubbleHtml;
     if (isDeleted) {
+      let delMediaHtml = '';
+      if (data.attachments && data.attachments.length) {
+        delMediaHtml = `<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">
+          <div style="font-size:11px;color:var(--red);opacity:0.9;font-weight:600;">🗑️ Deleted Media:</div>
+          ${data.attachments.map(url => renderAttachmentItem(url, true)).join('')}
+        </div>`;
+      }
       bubbleHtml = `<div class="bubble" style="background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-style:italic;opacity:0.85;">
         🗑️ ${esc(data.content || '[Message deleted]')} <span style="font-size:10px;opacity:0.6;">(deleted)</span>
+        ${delMediaHtml}
       </div>`;
     } else if (isBotGif) {
       const urlMatch = data.content.match(/https?:\/\/\S+/);
@@ -1914,12 +2091,13 @@
       const moodText = moodMatch ? moodMatch[1] : 'GIF';
       bubbleHtml = `<div class="bubble" style="padding:4px;background:none;border:none;"><img src="${gifUrl}" alt="${esc(moodText)}" style="max-width:240px;border-radius:10px;display:block;" loading="lazy"/></div>`;
     } else if (isPlainUrl) {
-      bubbleHtml = `<div class="bubble" style="padding:4px;background:none;border:none;"><img src="${trimmed}" alt="Media" style="max-width:280px;border-radius:10px;display:block;" loading="lazy" onerror="this.parentElement.innerHTML='<div class=bubble><a href=${trimmed} target=_blank style=color:var(--accent)>${esc(trimmed)}</a></div>'"/></div>`;
+      if (isVideoUrl(trimmed)) {
+        bubbleHtml = `<div class="bubble" style="padding:4px;background:none;border:none;"><video controls src="${trimmed}" style="max-width:280px;border-radius:10px;display:block;"></video></div>`;
+      } else {
+        bubbleHtml = `<div class="bubble" style="padding:4px;background:none;border:none;"><img src="${trimmed}" alt="Media" style="max-width:280px;border-radius:10px;display:block;" loading="lazy" onerror="this.parentElement.innerHTML='<div class=bubble><a href=${trimmed} target=_blank style=color:var(--accent)>${esc(trimmed)}</a></div>'"/></div>`;
+      }
     } else if (data.attachments && data.attachments.length) {
-      const attachHtml = data.attachments.map(url => isMediaUrl(url)
-        ? `<img src="${url}" alt="Attachment" style="max-width:280px;border-radius:10px;display:block;margin-top:4px;" loading="lazy"/>`
-        : `<a href="${url}" target="_blank" style="color:var(--accent);font-size:12px;">📎 Attachment</a>`
-      ).join('');
+      const attachHtml = data.attachments.map(url => renderAttachmentItem(url, false)).join('');
       const textPart = data.content ? `<div class="bubble">${esc(data.content)}</div>` : '';
       bubbleHtml = textPart + `<div style="display:flex;flex-direction:column;gap:4px;">${attachHtml}</div>`;
     } else {

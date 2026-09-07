@@ -13,6 +13,7 @@ class ConversationStore:
         # {user_id: {user_name, profile, messages, last_updated, total_messages, ai_replies}}
         self.file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "conversations.json")
         self._store: dict = {}
+        self._settings: dict = {"busy_message": "SAHAL_PRO is busy and working on something"}
         self.load_from_file()
 
     def load_from_file(self):
@@ -20,16 +21,27 @@ class ConversationStore:
             try:
                 with open(self.file_path, "r", encoding="utf-8") as f:
                     self._store = json.load(f)
+                if "_settings" in self._store and isinstance(self._store["_settings"], dict):
+                    self._settings = self._store["_settings"]
+                else:
+                    self._settings = {"busy_message": "SAHAL_PRO is busy and working on something"}
+                    self._store["_settings"] = self._settings
+                if not self._settings.get("busy_message"):
+                    self._settings["busy_message"] = "SAHAL_PRO is busy and working on something"
                 print(f"[Store] Loaded conversations from {self.file_path}")
             except Exception as e:
                 print(f"[Store] Error loading conversations: {e}")
                 self._store = {}
+                self._settings = {"busy_message": "SAHAL_PRO is busy and working on something"}
         else:
             self._store = {}
+            self._settings = {"busy_message": "SAHAL_PRO is busy and working on something"}
+            self._store["_settings"] = self._settings
 
     def save_to_file(self):
         try:
             os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
+            self._store["_settings"] = self._settings
             with open(self.file_path, "w", encoding="utf-8") as f:
                 json.dump(self._store, f, indent=2, ensure_ascii=False)
         except Exception as e:
@@ -51,6 +63,7 @@ class ConversationStore:
         channel_id: str = None,
         reply_to: dict = None,
         channel_type: str = "DM",
+        attachments_meta: list = None,
     ):
         """Add a message with optional attachments, stickers, reactions, and message ID."""
         if user_id not in self._store:
@@ -75,6 +88,7 @@ class ConversationStore:
                 "ai_replies": 0,
                 "ai_disabled": False,
                 "chat_mode": "human",
+                "busy_notice_sent": False,
             }
 
         convo = self._store[user_id]
@@ -98,6 +112,9 @@ class ConversationStore:
         if "chat_mode" not in convo:
             convo["chat_mode"] = "human"
 
+        if "busy_notice_sent" not in convo:
+            convo["busy_notice_sent"] = False
+
         msg_obj = {
             "id": message_id or f"msg_{datetime.now().timestamp()}",
             "role": role,
@@ -106,6 +123,7 @@ class ConversationStore:
             "user_name": user_name,
             "avatar": avatar,
             "attachments": attachments or [],
+            "attachments_meta": attachments_meta or [],
             "stickers": stickers or [],
             "reactions": reactions or [],
             "is_deleted": False,
@@ -128,15 +146,35 @@ class ConversationStore:
 
         self.save_to_file()
 
-    def mark_deleted(self, message_id: str):
+    def mark_deleted(self, message_id: str, convo_id: str = None, fallback_msg: dict = None):
         """Ghost message tracker: when someone deletes a message in Discord, we keep it and flag it."""
-        for convo in self._store.values():
+        found = False
+        for uid, convo in self._store.items():
+            if uid.startswith("_") or not isinstance(convo, dict) or "messages" not in convo:
+                continue
             for msg in convo["messages"]:
                 if msg.get("id") == str(message_id):
                     msg["is_deleted"] = True
                     msg["deleted_at"] = datetime.now().isoformat()
+                    # If fallback has attachments/metadata and original lacked it, augment it
+                    if fallback_msg:
+                        if fallback_msg.get("attachments") and not msg.get("attachments"):
+                            msg["attachments"] = fallback_msg["attachments"]
+                        if fallback_msg.get("attachments_meta") and not msg.get("attachments_meta"):
+                            msg["attachments_meta"] = fallback_msg["attachments_meta"]
+                    found = True
                     self.save_to_file()
                     return
+
+        # If message was not cached and fallback_msg provided, record as ghost message
+        if not found and convo_id and fallback_msg and convo_id in self._store:
+            fallback_msg["is_deleted"] = True
+            fallback_msg["deleted_at"] = datetime.now().isoformat()
+            self._store[convo_id]["messages"].append(fallback_msg)
+            self._store[convo_id]["total_messages"] += 1
+            if len(self._store[convo_id]["messages"]) > 60:
+                self._store[convo_id]["messages"] = self._store[convo_id]["messages"][-60:]
+            self.save_to_file()
 
     def mark_edited(self, message_id: str, new_content: str):
         """Track edited messages while keeping the original text."""
@@ -215,18 +253,52 @@ class ConversationStore:
         return history
 
     def is_ai_disabled(self, user_id: str) -> bool:
-        if user_id in self._store:
+        if user_id in self._store and isinstance(self._store[user_id], dict):
             return self._store[user_id].get("ai_disabled", False)
         return False
 
     def set_ai_disabled(self, user_id: str, disabled: bool):
-        if user_id in self._store:
+        if user_id in self._store and isinstance(self._store[user_id], dict):
             self._store[user_id]["ai_disabled"] = disabled
+            if not disabled:
+                self._store[user_id]["busy_notice_sent"] = False
+            self.save_to_file()
+
+    def get_busy_message(self) -> str:
+        """Return the custom busy auto-reply message sent when AI is turned off."""
+        return self._settings.get("busy_message", "SAHAL_PRO is busy and working on something")
+
+    def set_busy_message(self, msg: str):
+        """Set and persist the custom busy auto-reply message."""
+        self._settings["busy_message"] = msg.strip() or "SAHAL_PRO is busy and working on something"
+        self.save_to_file()
+
+    def has_busy_notice_sent(self, user_id: str) -> bool:
+        """Check if one-time busy notice has already been sent to this user while AI is disabled."""
+        if user_id in self._store and isinstance(self._store[user_id], dict):
+            return self._store[user_id].get("busy_notice_sent", False)
+        return False
+
+    def set_busy_notice_sent(self, user_id: str, sent: bool = True):
+        """Mark or unmark the busy notice sent state for a conversation."""
+        if user_id in self._store and isinstance(self._store[user_id], dict):
+            self._store[user_id]["busy_notice_sent"] = sent
+            self.save_to_file()
+
+    def reset_all_busy_notices(self):
+        """Reset the one-time busy notice flag for all conversations (e.g. when bot turns back ON)."""
+        changed = False
+        for uid, convo in self._store.items():
+            if not uid.startswith("_") and isinstance(convo, dict):
+                if convo.get("busy_notice_sent"):
+                    convo["busy_notice_sent"] = False
+                    changed = True
+        if changed:
             self.save_to_file()
 
     def get_chat_mode(self, user_id: str) -> str:
         """Return chat mode: 'human', 'ai', 'extreme_ai', or 'romance'. Defaults to 'human'."""
-        if user_id in self._store:
+        if user_id in self._store and isinstance(self._store[user_id], dict):
             return self._store[user_id].get("chat_mode", "human")
         return "human"
 
@@ -235,7 +307,7 @@ class ConversationStore:
         valid_modes = {"human", "ai", "extreme_ai", "romance"}
         if mode not in valid_modes:
             mode = "human"
-        if user_id in self._store:
+        if user_id in self._store and isinstance(self._store[user_id], dict):
             self._store[user_id]["chat_mode"] = mode
             self.save_to_file()
 
@@ -244,9 +316,13 @@ class ConversationStore:
         changed = False
         disabled_set = set(disabled_ids)
         for uid, convo in self._store.items():
+            if uid.startswith("_") or not isinstance(convo, dict):
+                continue
             should_be_disabled = uid in disabled_set
             if convo.get("ai_disabled", False) != should_be_disabled:
                 convo["ai_disabled"] = should_be_disabled
+                if not should_be_disabled:
+                    convo["busy_notice_sent"] = False
                 changed = True
         if changed:
             self.save_to_file()
@@ -255,7 +331,7 @@ class ConversationStore:
         """Update chat_mode for conversations based on the dictionary from the cloud."""
         changed = False
         for uid, mode in chat_modes.items():
-            if uid in self._store and self._store[uid].get("chat_mode") != mode:
+            if uid in self._store and isinstance(self._store[uid], dict) and self._store[uid].get("chat_mode") != mode:
                 self._store[uid]["chat_mode"] = mode
                 changed = True
         if changed:
@@ -265,16 +341,17 @@ class ConversationStore:
         return user_id not in self._store
 
     def get_all(self) -> dict:
-        return self._store
+        return {k: v for k, v in self._store.items() if not k.startswith("_")}
 
     def get_conversation(self, user_id: str) -> Optional[dict]:
         return self._store.get(user_id)
 
     def get_stats(self) -> dict:
-        total_msgs = sum(c["total_messages"] for c in self._store.values())
-        total_replies = sum(c["ai_replies"] for c in self._store.values())
+        convos = [c for k, c in self._store.items() if not k.startswith("_") and isinstance(c, dict) and "total_messages" in c]
+        total_msgs = sum(c.get("total_messages", 0) for c in convos)
+        total_replies = sum(c.get("ai_replies", 0) for c in convos)
         return {
-            "total_conversations": len(self._store),
+            "total_conversations": len(convos),
             "total_messages": total_msgs,
             "total_ai_replies": total_replies,
         }
@@ -283,6 +360,8 @@ class ConversationStore:
         """Return all conversations sorted with full profile, media, and ghost messages."""
         result = []
         for uid, data in self._store.items():
+            if uid.startswith("_") or not isinstance(data, dict) or "messages" not in data:
+                continue
             last_msg = ""
             if data["messages"]:
                 lm = data["messages"][-1]
@@ -311,6 +390,7 @@ class ConversationStore:
                     "messages": data["messages"],
                     "ai_disabled": data.get("ai_disabled", False),
                     "chat_mode": data.get("chat_mode", "human"),
+                    "busy_notice_sent": data.get("busy_notice_sent", False),
                 }
             )
         result.sort(key=lambda x: x["last_updated"], reverse=True)

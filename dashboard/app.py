@@ -3,7 +3,7 @@ Flask + SocketIO dashboard — real-time conversation monitor.
 """
 
 import asyncio
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_socketio import SocketIO
 from bot.rpc_manager import RPCManager
 
@@ -83,15 +83,22 @@ def create_app(config: dict):
 
     @app.route("/")
     def index():
+        busy_msg = "SAHAL_PRO is busy and working on something"
+        if state.get("bot") and hasattr(state["bot"], "store"):
+            busy_msg = state["bot"].store.get_busy_message()
         return render_template(
             "index.html",
             owner_name=config.get("your_name", "Sahal"),
             afk_mode=state["afk_mode"],
             rpc_config=state["rpc_config"],
+            busy_message=busy_msg,
         )
 
     @app.route("/api/state")
     def get_state():
+        busy_msg = "SAHAL_PRO is busy and working on something"
+        if state.get("bot") and hasattr(state["bot"], "store"):
+            busy_msg = state["bot"].store.get_busy_message()
         return jsonify(
             {
                 "afk_mode": state["afk_mode"],
@@ -100,8 +107,44 @@ def create_app(config: dict):
                 "stats": state["stats"],
                 "voice_state": state["voice_state"],
                 "music_state": state["music_state"],
+                "busy_message": busy_msg,
             }
         )
+
+    @app.route("/api/set-busy-message", methods=["POST"])
+    def set_busy_message():
+        data = request.get_json() or {}
+        msg = (data.get("busy_message") or "").strip()
+        if not msg:
+            return jsonify({"success": False, "error": "Busy message cannot be empty"}), 400
+        bot = state.get("bot")
+        if bot and hasattr(bot, "store"):
+            bot.store.set_busy_message(msg)
+            socketio.emit("busy_message_update", {"busy_message": msg})
+            if hasattr(bot, "cloud_sync") and bot.cloud_sync.enabled:
+                import asyncio
+                asyncio.run_coroutine_threadsafe(bot.cloud_sync.sync_once(), bot.loop)
+            return jsonify({"success": True, "busy_message": msg})
+        return jsonify({"success": False, "error": "Bot is not active"}), 500
+
+    @app.route("/api/scan-chats", methods=["POST"])
+    def scan_chats_route():
+        bot = state.get("bot")
+        if not bot or not hasattr(bot, "scan_all_chats"):
+            return jsonify({"success": False, "error": "Bot is not active"}), 500
+        import asyncio
+        fut = asyncio.run_coroutine_threadsafe(bot.scan_all_chats(), bot.loop)
+        try:
+            res = fut.result(timeout=60)
+            return jsonify({"success": True, **res})
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)}), 500
+
+    @app.route("/media/<path:filename>")
+    def serve_media(filename):
+        import os
+        from bot.media_manager import STATIC_MEDIA_DIR
+        return send_from_directory(STATIC_MEDIA_DIR, filename)
 
     @app.route("/api/toggle-afk", methods=["POST"])
     def toggle_afk():
@@ -291,6 +334,9 @@ def create_app(config: dict):
 
     @socketio.on("connect")
     def handle_connect():
+        busy_msg = "SAHAL_PRO is busy and working on something"
+        if state.get("bot") and hasattr(state["bot"], "store"):
+            busy_msg = state["bot"].store.get_busy_message()
         socketio.emit(
             "initial_state",
             {
@@ -300,6 +346,7 @@ def create_app(config: dict):
                 "stats": state["stats"],
                 "voice_state": state["voice_state"],
                 "music_state": state["music_state"],
+                "busy_message": busy_msg,
                 "log": state["log"][:50],
             },
         )

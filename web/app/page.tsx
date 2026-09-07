@@ -96,6 +96,7 @@ interface DashboardState {
   rpc_config?: RpcConfig;
   voice_state?: VoiceState;
   music_state?: MusicState;
+  busy_message?: string;
   stats: {
     total_conversations: number;
     total_messages: number;
@@ -116,6 +117,17 @@ export default function Dashboard() {
   const [isAifying, setIsAifying] = useState(false);
   const [isTogglingAI, setIsTogglingAI] = useState(false);
   const [isSettingMode, setIsSettingMode] = useState(false);
+
+  // ── Busy Message & Chat Scan State ──
+  const [isBusyModalOpen, setIsBusyModalOpen] = useState(false);
+  const [busyMessageInput, setBusyMessageInput] = useState("");
+  const [isSavingBusy, setIsSavingBusy] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+
+  // ── Live Chat Update Indicators ──
+  const [recentUpdatedUserIds, setRecentUpdatedUserIds] = useState<Record<string, number>>({});
+  const [lastUpdateNotice, setLastUpdateNotice] = useState<{ name: string; text: string; time: number } | null>(null);
+  const prevConvosMapRef = useRef<Record<string, { count: number; lastMsg: string }>>({});
 
   // ── Voice & YouTube Music Player State ──
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
@@ -450,13 +462,115 @@ export default function Dashboard() {
     }
   };
 
+  const handleScanChats = async () => {
+    if (isScanning) return;
+    setIsScanning(true);
+    try {
+      const res = await fetch("/api/scan-chats", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        alert("🔄 Chat scan request queued! The local bot will scan open channels, sync missed messages, and update this site.");
+        fetchState();
+      } else {
+        alert(data.error || "Failed to request chat scan");
+      }
+    } catch (err: any) {
+      alert(`Network error requesting chat scan: ${err?.message || err}`);
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const handleSaveBusyMessage = async () => {
+    if (!busyMessageInput.trim()) {
+      alert("Busy message cannot be empty");
+      return;
+    }
+    setIsSavingBusy(true);
+    try {
+      const res = await fetch("/api/set-busy-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ busy_message: busyMessageInput.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsBusyModalOpen(false);
+        fetchState();
+      } else {
+        alert(data.error || "Failed to save busy message");
+      }
+    } catch (err: any) {
+      alert(`Network error saving busy message: ${err?.message || err}`);
+    } finally {
+      setIsSavingBusy(false);
+    }
+  };
+
   // Poll state from API every 2.5 seconds
   const fetchState = async () => {
     try {
       const res = await fetch("/api/state", { cache: "no-store" });
       if (res.ok) {
         const data: DashboardState = await res.json();
+        
+        // Detect new incoming messages or updated chats
+        if (data.conversations && data.conversations.length > 0) {
+          const now = Date.now();
+          const prevMap = prevConvosMapRef.current;
+          const newUpdates: Record<string, number> = {};
+          let latestNotice: { name: string; text: string; time: number } | null = null;
+
+          if (Object.keys(prevMap).length > 0) {
+            for (const c of data.conversations) {
+              const prev = prevMap[c.user_id];
+              const currentCount = c.messages ? c.messages.length : 0;
+              const currentLastMsg = c.last_message || "";
+
+              if (prev) {
+                // If message count increased or last message changed
+                if (currentCount > prev.count || (currentLastMsg && currentLastMsg !== prev.lastMsg)) {
+                  newUpdates[c.user_id] = now;
+                  latestNotice = {
+                    name: c.user_name,
+                    text: currentLastMsg || "New message received",
+                    time: now,
+                  };
+                }
+              } else {
+                // Completely new conversation appeared (e.g. from chat scanner)
+                newUpdates[c.user_id] = now;
+                latestNotice = {
+                  name: c.user_name,
+                  text: currentLastMsg || "New chat discovered",
+                  time: now,
+                };
+              }
+            }
+          }
+
+          // Save current snapshot
+          const nextMap: Record<string, { count: number; lastMsg: string }> = {};
+          for (const c of data.conversations) {
+            nextMap[c.user_id] = {
+              count: c.messages ? c.messages.length : 0,
+              lastMsg: c.last_message || "",
+            };
+          }
+          prevConvosMapRef.current = nextMap;
+
+          if (Object.keys(newUpdates).length > 0) {
+            setRecentUpdatedUserIds((prev) => ({ ...prev, ...newUpdates }));
+            if (latestNotice) {
+              setLastUpdateNotice(latestNotice);
+            }
+          }
+        }
+
         setState(data);
+        if (data.busy_message && !busyMessageInput) {
+          setBusyMessageInput(data.busy_message);
+        }
         setSelectedUserId((current) => {
           if (!current && data.conversations.length > 0) {
             return data.conversations[0].user_id;
@@ -468,6 +582,15 @@ export default function Dashboard() {
       console.error("Fetch state error:", e);
     }
   };
+
+  // Auto-dismiss update banner after 7 seconds
+  useEffect(() => {
+    if (!lastUpdateNotice) return;
+    const timer = setTimeout(() => {
+      setLastUpdateNotice(null);
+    }, 7000);
+    return () => clearTimeout(timer);
+  }, [lastUpdateNotice]);
 
   useEffect(() => {
     fetchState();
@@ -750,6 +873,53 @@ export default function Dashboard() {
             />
           </button>
 
+          {/* ── Scan Chats Button ── */}
+          <button
+            onClick={handleScanChats}
+            disabled={isScanning}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "7px 16px",
+              borderRadius: "20px",
+              backgroundColor: "var(--bg-surface-elevated)",
+              border: "1px solid var(--border-subtle)",
+              color: "var(--text-primary)",
+              fontSize: "13px",
+              fontWeight: "600",
+              cursor: isScanning ? "not-allowed" : "pointer",
+              transition: "all 0.2s ease",
+            }}
+            title="Scan all open DM and Group DM channels to sync missed messages and update website"
+          >
+            <span style={{ fontSize: "15px" }}>{isScanning ? "⏳" : "🔄"}</span>
+            <span>{isScanning ? "Scanning..." : "Scan Chats"}</span>
+          </button>
+
+          {/* ── Busy Auto-Reply Button ── */}
+          <button
+            onClick={() => setIsBusyModalOpen(true)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "7px 16px",
+              borderRadius: "20px",
+              backgroundColor: "var(--bg-surface-elevated)",
+              border: "1px solid var(--border-subtle)",
+              color: "var(--text-primary)",
+              fontSize: "13px",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+            title="Customize One-Time Busy Message (When AI is OFF)"
+          >
+            <span style={{ fontSize: "15px" }}>📴</span>
+            <span>Busy Auto-Reply</span>
+          </button>
+
           <button
             onClick={handleToggleAFK}
             disabled={isToggling}
@@ -816,19 +986,40 @@ export default function Dashboard() {
                 const isSelected = convo.user_id === selectedUserId;
                 const profile = convo.profile || {};
                 const statusColor = getStatusColor(profile.status);
+                const isRecentlyUpdated = Boolean(
+                  recentUpdatedUserIds[convo.user_id] &&
+                  Date.now() - recentUpdatedUserIds[convo.user_id] < 120000
+                );
 
                 return (
                   <div
                     key={convo.user_id}
-                    onClick={() => setSelectedUserId(convo.user_id)}
+                    onClick={() => {
+                      setSelectedUserId(convo.user_id);
+                      if (recentUpdatedUserIds[convo.user_id]) {
+                        setRecentUpdatedUserIds((prev) => {
+                          const copy = { ...prev };
+                          delete copy[convo.user_id];
+                          return copy;
+                        });
+                      }
+                    }}
                     style={{
                       display: "flex",
                       alignItems: "center",
                       gap: "12px",
                       padding: "12px 16px",
                       cursor: "pointer",
-                      backgroundColor: isSelected ? "var(--bg-surface-elevated)" : "transparent",
-                      borderLeft: isSelected ? "3px solid var(--accent-emerald)" : "3px solid transparent",
+                      backgroundColor: isSelected
+                        ? "var(--bg-surface-elevated)"
+                        : isRecentlyUpdated
+                        ? "rgba(16, 185, 129, 0.08)"
+                        : "transparent",
+                      borderLeft: isSelected
+                        ? "3px solid var(--accent-emerald)"
+                        : isRecentlyUpdated
+                        ? "3px solid #34d399"
+                        : "3px solid transparent",
                       transition: "background-color 0.15s ease",
                     }}
                   >
@@ -892,6 +1083,24 @@ export default function Dashboard() {
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2px" }}>
                         <span style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", gap: "6px" }}>
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{convo.user_name}</span>
+                          {isRecentlyUpdated && (
+                            <span
+                              style={{
+                                fontSize: "9px",
+                                fontWeight: "800",
+                                color: "#000",
+                                backgroundColor: "var(--accent-emerald)",
+                                padding: "1px 5px",
+                                borderRadius: "8px",
+                                flexShrink: 0,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.03em",
+                                boxShadow: "0 0 8px rgba(16, 185, 129, 0.6)",
+                              }}
+                            >
+                              NEW
+                            </span>
+                          )}
                           {convo.ai_disabled ? (
                             <span style={{ fontSize: "10px", color: "var(--accent-rose)", fontWeight: "700", backgroundColor: "rgba(239, 68, 68, 0.15)", padding: "1px 5px", borderRadius: "4px", flexShrink: 0 }}>PAUSED</span>
                           ) : convo.chat_mode === "romance" ? (
@@ -908,7 +1117,7 @@ export default function Dashboard() {
                           {formatTime(convo.last_updated)}
                         </span>
                       </div>
-                      <p style={{ fontSize: "12px", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <p style={{ fontSize: "12px", color: isRecentlyUpdated ? "var(--text-primary)" : "var(--text-muted)", fontWeight: isRecentlyUpdated ? "600" : "normal", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {convo.last_message}
                       </p>
                     </div>
@@ -998,6 +1207,33 @@ export default function Dashboard() {
                         ✨ {selectedConvo.profile.custom_status}
                       </div>
                     )}
+                    <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px", display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span>Last updated: {formatTime(selectedConvo.last_updated)}</span>
+                      {recentUpdatedUserIds[selectedConvo.user_id] && (
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            fontWeight: "700",
+                            color: "var(--accent-emerald)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          <span
+                            className="pulse-dot"
+                            style={{
+                              width: "6px",
+                              height: "6px",
+                              borderRadius: "50%",
+                              backgroundColor: "var(--accent-emerald)",
+                              display: "inline-block",
+                            }}
+                          />
+                          Updated just now
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1125,7 +1361,38 @@ export default function Dashboard() {
               </div>
 
               {/* Message History */}
-              <div ref={chatContainerRef} style={{ flex: 1, minWidth: 0, width: "100%", overflowY: "auto", overflowX: "hidden", padding: "24px", display: "flex", flexDirection: "column", gap: "8px", justifyContent: "flex-start" }}>
+              <div ref={chatContainerRef} style={{ position: "relative", flex: 1, minWidth: 0, width: "100%", overflowY: "auto", overflowX: "hidden", padding: "24px", display: "flex", flexDirection: "column", gap: "8px", justifyContent: "flex-start" }}>
+                {/* Realtime Chat Updated Toast Notification */}
+                {lastUpdateNotice && (
+                  <div
+                    className="update-banner"
+                    style={{
+                      position: "sticky",
+                      top: 0,
+                      alignSelf: "center",
+                      zIndex: 30,
+                      backgroundColor: "rgba(16, 185, 129, 0.95)",
+                      color: "#000",
+                      padding: "7px 16px",
+                      borderRadius: "20px",
+                      fontSize: "12px",
+                      fontWeight: "700",
+                      boxShadow: "0 8px 20px rgba(0, 0, 0, 0.45)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      cursor: "pointer",
+                      backdropFilter: "blur(6px)",
+                    }}
+                    onClick={() => setLastUpdateNotice(null)}
+                    title="Click to dismiss"
+                  >
+                    <span>⚡</span>
+                    <span>Chat updated with <strong>{lastUpdateNotice.name}</strong>: &quot;{lastUpdateNotice.text.slice(0, 45)}...&quot;</span>
+                    <span style={{ fontSize: "10px", opacity: 0.75, marginLeft: "4px" }}>✕</span>
+                  </div>
+                )}
+
                 {selectedConvo.messages.map((msg, index) => {
                   const isAssistant = msg.role === "assistant";
                   const isBotGif = msg.content?.startsWith("[GIF:");
@@ -1133,10 +1400,15 @@ export default function Dashboard() {
                   const isEdited = msg.is_edited;
                   const trimmed = (msg.content || "").trim();
 
+                  const isVideoUrl = (url: string) => {
+                    const l = url.toLowerCase();
+                    return /\.(mp4|webm|mov|m4v|ogg)(\?.*)?$/.test(l);
+                  };
+
                   const isMediaUrl = (url: string) => {
                     const l = url.toLowerCase();
                     // Match by file extension (gif, png, jpg, etc.)
-                    if (/\.(gif|png|jpg|jpeg|webp|mp4|mov|webm)(\?.*)?$/.test(l)) return true;
+                    if (/\.(gif|png|jpg|jpeg|webp|mp4|mov|webm|m4v|ogg)(\?.*)?$/.test(l)) return true;
                     // Match known GIF/media CDN domains (no extension needed)
                     const gifDomains = [
                       "giphy.com", "klipy.com",
@@ -1180,7 +1452,7 @@ export default function Dashboard() {
                         display: "flex",
                         flexDirection: "column",
                         alignItems: isAssistant ? "flex-end" : "flex-start",
-                        opacity: isDeleted ? 0.7 : 1,
+                        opacity: isDeleted ? 0.85 : 1,
                         width: "100%",
                         maxWidth: "100%",
                         minWidth: 0,
@@ -1225,9 +1497,40 @@ export default function Dashboard() {
                           backgroundColor: "rgba(248,113,113,0.1)",
                           border: "1px solid rgba(248,113,113,0.3)",
                           color: "#f87171",
-                          fontStyle: "italic",
                         }}>
-                          🗑️ {msg.content || "[Message deleted]"} <span style={{ fontSize: "11px", opacity: 0.6 }}>(deleted)</span>
+                          <div style={{ fontStyle: "italic", marginBottom: msg.attachments && msg.attachments.length > 0 ? "8px" : "0" }}>
+                            🗑️ {msg.content || "[Message deleted]"} <span style={{ fontSize: "11px", opacity: 0.6 }}>(deleted)</span>
+                          </div>
+
+                          {/* Preserved Deleted Attachments */}
+                          {msg.attachments && msg.attachments.length > 0 && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "6px" }}>
+                              <span style={{ fontSize: "11px", fontWeight: "600", color: "#f87171", opacity: 0.85 }}>
+                                📁 Preserved Deleted Media:
+                              </span>
+                              {msg.attachments.map((attUrl, aIdx) => (
+                                isVideoUrl(attUrl) ? (
+                                  <video
+                                    key={aIdx}
+                                    src={attUrl}
+                                    controls
+                                    style={{ maxWidth: "280px", borderRadius: "8px", border: "1px solid rgba(248,113,113,0.4)" }}
+                                  />
+                                ) : isMediaUrl(attUrl) ? (
+                                  <img
+                                    key={aIdx}
+                                    src={attUrl}
+                                    alt="Deleted Attachment"
+                                    style={{ maxWidth: "280px", borderRadius: "8px", border: "1px solid rgba(248,113,113,0.4)", display: "block" }}
+                                  />
+                                ) : (
+                                  <a key={aIdx} href={attUrl} target="_blank" rel="noreferrer" style={{ color: "#f87171", fontSize: "12px", textDecoration: "underline" }}>
+                                    📎 {attUrl.split("/").pop() || "Deleted Attachment"}
+                                  </a>
+                                )
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ) : isBotGif ? (() => {
                         const gifSrc = msg.content.replace(/\[GIF:[^\]]+\]/, "");
@@ -1255,6 +1558,10 @@ export default function Dashboard() {
                               allowFullScreen
                             />
                           </div>
+                        ) : isVideoUrl(trimmed) ? (
+                          <div style={{ maxWidth: "320px", borderRadius: "12px", overflow: "hidden", border: "1px solid var(--border-subtle)" }}>
+                            <video src={trimmed} controls style={{ width: "100%", borderRadius: "12px", display: "block" }} />
+                          </div>
                         ) : (
                           <div style={{ maxWidth: "280px", borderRadius: "12px", overflow: "hidden", border: "1px solid var(--border-subtle)" }}>
                             <img src={trimmed} alt="Media" style={{ width: "100%", borderRadius: "12px", display: "block" }} />
@@ -1275,9 +1582,11 @@ export default function Dashboard() {
 
                       {/* Attachments */}
                       {!isDeleted && msg.attachments && msg.attachments.length > 0 && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px", maxWidth: "280px" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px", maxWidth: "320px" }}>
                           {msg.attachments.map((attUrl, aIdx) => (
-                            isMediaUrl(attUrl) ? (
+                            isVideoUrl(attUrl) ? (
+                              <video key={aIdx} src={attUrl} controls style={{ width: "100%", borderRadius: "10px", border: "1px solid var(--border-subtle)" }} />
+                            ) : isMediaUrl(attUrl) ? (
                               <img key={aIdx} src={attUrl} alt="Attachment" style={{ width: "100%", borderRadius: "10px", border: "1px solid var(--border-subtle)" }} />
                             ) : (
                               <a key={aIdx} href={attUrl} target="_blank" rel="noreferrer" style={{ color: "var(--accent-emerald)", fontSize: "12px" }}>📎 Attachment</a>
@@ -2856,6 +3165,189 @@ export default function Dashboard() {
                 }}
               >
                 Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Busy Auto-Reply Modal ── */}
+      {isBusyModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.75)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            backdropFilter: "blur(4px)",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsBusyModalOpen(false);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "var(--bg-card)",
+              borderRadius: "16px",
+              border: "1px solid var(--border-subtle)",
+              width: "520px",
+              maxWidth: "92vw",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: "20px 24px",
+                borderBottom: "1px solid var(--border-subtle)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                backgroundColor: "var(--bg-surface)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ fontSize: "20px" }}>📴</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700" }}>Busy Auto-Reply Message</h3>
+                  <p style={{ margin: 0, fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
+                    Sent strictly once per session when someone messages while AI is turned off.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsBusyModalOpen(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--text-muted)",
+                  fontSize: "18px",
+                  cursor: "pointer",
+                  padding: "4px 8px",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: "1.5" }}>
+                When AI is turned off for a DM/group or globally, any user messaging you receives this reply <strong>only once</strong>. Nothing further will be sent after that until AI is re-enabled.
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: "600", marginBottom: "8px", color: "var(--text-primary)" }}>
+                  Custom Message:
+                </label>
+                <textarea
+                  value={busyMessageInput}
+                  onChange={(e) => setBusyMessageInput(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. SAHAL_PRO is busy and working on something"
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "10px",
+                    backgroundColor: "var(--bg-surface)",
+                    border: "1px solid var(--border-subtle)",
+                    color: "var(--text-primary)",
+                    fontSize: "13px",
+                    resize: "vertical",
+                    outline: "none",
+                    fontFamily: "inherit",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+
+              {/* Presets */}
+              <div>
+                <label style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "6px" }}>
+                  Quick Presets:
+                </label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                  {[
+                    "SAHAL_PRO is busy and working on something",
+                    "I am currently away and working on a project. I'll catch up later!",
+                    "AFK right now. Leaving a message here is saved, will reply when back!",
+                  ].map((preset, pIdx) => (
+                    <button
+                      key={pIdx}
+                      type="button"
+                      onClick={() => setBusyMessageInput(preset)}
+                      style={{
+                        padding: "4px 10px",
+                        fontSize: "11px",
+                        borderRadius: "6px",
+                        backgroundColor: "var(--bg-surface)",
+                        border: "1px solid var(--border-subtle)",
+                        color: "var(--text-secondary)",
+                        cursor: "pointer",
+                        textAlign: "left",
+                      }}
+                    >
+                      "{preset.slice(0, 36)}..."
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: "16px 24px",
+                borderTop: "1px solid var(--border-subtle)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                gap: "10px",
+                backgroundColor: "var(--bg-surface-elevated)",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setIsBusyModalOpen(false)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  backgroundColor: "var(--bg-surface)",
+                  border: "1px solid var(--border-subtle)",
+                  color: "var(--text-primary)",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSavingBusy}
+                onClick={handleSaveBusyMessage}
+                style={{
+                  padding: "8px 20px",
+                  borderRadius: "8px",
+                  backgroundColor: "var(--accent-emerald)",
+                  border: "none",
+                  color: "#000",
+                  fontSize: "13px",
+                  fontWeight: "700",
+                  cursor: isSavingBusy ? "not-allowed" : "pointer",
+                  opacity: isSavingBusy ? 0.7 : 1,
+                }}
+              >
+                {isSavingBusy ? "Saving..." : "Save Message"}
               </button>
             </div>
           </div>

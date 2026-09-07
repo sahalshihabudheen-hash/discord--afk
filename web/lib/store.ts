@@ -43,6 +43,7 @@ export interface Message {
   avatar?: string | null;
   avatar_decoration?: string | null;
   attachments?: string[];
+  attachments_meta?: any[];
   stickers?: string[];
   reactions?: string[];
   is_deleted?: boolean;
@@ -123,6 +124,7 @@ export interface DashboardState {
   rpc_config?: RpcConfig;
   voice_state?: VoiceState;
   music_state?: MusicState;
+  busy_message?: string;
   stats: {
     total_conversations: number;
     total_messages: number;
@@ -142,6 +144,8 @@ declare global {
   var __PENDING_MESSAGES: PendingMessage[] | undefined;
   var __PENDING_RPC: RpcConfig | null | undefined;
   var __PENDING_MUSIC_COMMANDS: MusicCommand[] | undefined;
+  var __PENDING_BUSY_MESSAGE: string | null | undefined;
+  var __SCAN_CHATS_REQUESTED: boolean | undefined;
   var __GROQ_API_KEY: string | undefined;
 }
 
@@ -153,6 +157,33 @@ export function setSyncedGroqKey(key?: string) {
 
 export function getSyncedGroqKey(): string | undefined {
   return global.__GROQ_API_KEY;
+}
+
+export function getPendingBusyMessage(): string | null | undefined {
+  return global.__PENDING_BUSY_MESSAGE;
+}
+
+export function setPendingBusyMessage(msg: string) {
+  global.__PENDING_BUSY_MESSAGE = msg;
+  const current = getGlobalState();
+  current.busy_message = msg;
+  saveToFile(current);
+}
+
+export function clearPendingBusyMessage() {
+  global.__PENDING_BUSY_MESSAGE = null;
+}
+
+export function requestScanChats() {
+  global.__SCAN_CHATS_REQUESTED = true;
+}
+
+export function isScanChatsRequested(): boolean {
+  return !!global.__SCAN_CHATS_REQUESTED;
+}
+
+export function clearScanChatsRequested() {
+  global.__SCAN_CHATS_REQUESTED = false;
 }
 
 export function getPendingMessages(): PendingMessage[] {
@@ -218,6 +249,7 @@ const defaultState: DashboardState = {
   last_sync: null,
   bot_connected: false,
   rpc_config: defaultRpcConfig,
+  busy_message: "SAHAL_PRO is busy and working on something",
   stats: {
     total_conversations: 0,
     total_messages: 0,
