@@ -64,12 +64,9 @@ class ConversationStore:
                 clean_store[uid] = clean_convo
             clean_store["_settings"] = self._settings
 
-            # Atomic write: write to .tmp then replace, so a crash mid-write
-            # never leaves a corrupted conversations.json
-            tmp_path = self.file_path + ".tmp"
-            with open(tmp_path, "w", encoding="utf-8") as f:
+            # Write directly to conversations.json
+            with open(self.file_path, "w", encoding="utf-8") as f:
                 json.dump(clean_store, f, indent=2, ensure_ascii=False)
-            os.replace(tmp_path, self.file_path)
         except Exception as e:
             print(f"[Store] Error saving conversations: {e}")
 
