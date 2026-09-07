@@ -69,6 +69,7 @@ export async function GET() {
         ...memoryState,
         _debug: {
           source: "supabase",
+          supabaseUrl: (supabase as any).supabaseUrl,
           convosCount: convos.length,
           botStateRowsCount: botStateRows?.length,
         },
