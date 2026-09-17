@@ -2,6 +2,15 @@
 
 import { useEffect, useState, useRef } from "react";
 
+interface AvatarHistoryEntry {
+  avatar?: string | null;
+  avatar_decoration?: string | null;
+  previous_avatar?: string | null;
+  previous_decoration?: string | null;
+  timestamp: string;
+  label?: string;
+}
+
 interface UserProfile {
   avatar?: string | null;
   avatar_decoration?: string | null;
@@ -12,6 +21,10 @@ interface UserProfile {
   custom_status?: string | null;
   bio?: string | null;
   handle?: string;
+  previous_avatar?: string | null;
+  previous_decoration?: string | null;
+  avatar_switched_at?: string | null;
+  avatar_history?: AvatarHistoryEntry[];
 }
 
 interface Message {
@@ -43,6 +56,10 @@ interface Conversation {
   messages: Message[];
   ai_disabled?: boolean;
   chat_mode?: "human" | "ai" | "extreme_ai" | "romance";
+  avatar_history?: AvatarHistoryEntry[];
+  previous_avatar?: string | null;
+  previous_decoration?: string | null;
+  avatar_switched_at?: string | null;
 }
 
 export interface RpcConfig {
@@ -157,15 +174,35 @@ export default function Dashboard() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const prevConvoIdRef = useRef<string | null>(null);
   const prevMsgCountRef = useRef<number>(0);
+  const pendingLocalUpdatesRef = useRef<Record<string, { mode?: string; ai_disabled?: boolean; ts: number }>>({});
 
   const handleSetMode = async (mode: "human" | "ai" | "extreme_ai" | "romance") => {
-    if (isSettingMode || !selectedUserId || !state) return;
-    setIsSettingMode(true);
+    if (!selectedUserId || !state) return;
+    const uid = selectedUserId;
+
+    // Track optimistic update so fetchState polling doesn't overwrite it
+    pendingLocalUpdatesRef.current[uid] = {
+      ...pendingLocalUpdatesRef.current[uid],
+      mode,
+      ts: Date.now(),
+    };
+
+    // 1. Instant optimistic update on single click
+    setState((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        conversations: prev.conversations.map((c) =>
+          c.user_id === uid ? { ...c, chat_mode: mode } : c
+        ),
+      };
+    });
+
     try {
       const res = await fetch("/api/set-mode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: selectedUserId, mode }),
+        body: JSON.stringify({ user_id: uid, mode }),
       });
       if (res.ok) {
         const resData = await res.json();
@@ -174,15 +211,13 @@ export default function Dashboard() {
           return {
             ...prev,
             conversations: prev.conversations.map((c) =>
-              c.user_id === selectedUserId ? { ...c, chat_mode: resData.chat_mode } : c
+              c.user_id === uid ? { ...c, chat_mode: resData.chat_mode } : c
             ),
           };
         });
       }
     } catch (e) {
       console.error("Set mode error:", e);
-    } finally {
-      setIsSettingMode(false);
     }
   };
 
@@ -347,15 +382,34 @@ export default function Dashboard() {
   };
 
   const handleToggleAI = async () => {
-    if (isTogglingAI || !selectedUserId || !state) return;
-    setIsTogglingAI(true);
+    if (!selectedUserId || !state) return;
+    const uid = selectedUserId;
+    const convo = state.conversations.find((c) => c.user_id === uid);
+    const nextDisabled = convo ? !convo.ai_disabled : true;
+
+    // Track optimistic update so fetchState polling doesn't overwrite it
+    pendingLocalUpdatesRef.current[uid] = {
+      ...pendingLocalUpdatesRef.current[uid],
+      ai_disabled: nextDisabled,
+      ts: Date.now(),
+    };
+
+    // 1. Instant optimistic update on single click
+    setState((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        conversations: prev.conversations.map((c) =>
+          c.user_id === uid ? { ...c, ai_disabled: nextDisabled } : c
+        ),
+      };
+    });
+
     try {
-      const convo = state.conversations.find((c) => c.user_id === selectedUserId);
-      const nextDisabled = convo ? !convo.ai_disabled : true;
       const res = await fetch("/api/toggle-ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: selectedUserId, ai_disabled: nextDisabled }),
+        body: JSON.stringify({ user_id: uid, ai_disabled: nextDisabled }),
       });
       if (res.ok) {
         const resData = await res.json();
@@ -364,15 +418,13 @@ export default function Dashboard() {
           return {
             ...prev,
             conversations: prev.conversations.map((c) =>
-              c.user_id === selectedUserId ? { ...c, ai_disabled: resData.ai_disabled } : c
+              c.user_id === uid ? { ...c, ai_disabled: resData.ai_disabled } : c
             ),
           };
         });
       }
     } catch (e) {
       console.error("Toggle AI error:", e);
-    } finally {
-      setIsTogglingAI(false);
     }
   };
 
@@ -565,6 +617,22 @@ export default function Dashboard() {
               setLastUpdateNotice(latestNotice);
             }
           }
+        }
+
+        // Preserve optimistic local updates so fast polling never reverts a single click
+        if (data.conversations && data.conversations.length > 0) {
+          const now = Date.now();
+          data.conversations = data.conversations.map((c) => {
+            const pending = pendingLocalUpdatesRef.current[c.user_id];
+            if (pending && (now - pending.ts < 6000)) {
+              return {
+                ...c,
+                chat_mode: (pending.mode as any) || c.chat_mode,
+                ai_disabled: pending.ai_disabled !== undefined ? pending.ai_disabled : c.ai_disabled,
+              };
+            }
+            return c;
+          });
         }
 
         setState(data);
@@ -1252,7 +1320,6 @@ export default function Dashboard() {
                   >
                     <button
                       onClick={() => handleSetMode("human")}
-                      disabled={isSettingMode}
                       title="Human Mode: Sahal's casual lazy style, no emojis, short replies, smart and accurate answers"
                       style={{
                         padding: "5px 10px",
@@ -1270,7 +1337,6 @@ export default function Dashboard() {
                     </button>
                     <button
                       onClick={() => handleSetMode("ai")}
-                      disabled={isSettingMode}
                       title="AI Mode: Friendly bot, moderate emojis, medium-length clear answers"
                       style={{
                         padding: "5px 10px",
@@ -1288,7 +1354,6 @@ export default function Dashboard() {
                     </button>
                     <button
                       onClick={() => handleSetMode("extreme_ai")}
-                      disabled={isSettingMode}
                       title="Extreme AI Mode: Lots of emojis, long thorough explanations, full assistant"
                       style={{
                         padding: "5px 10px",
@@ -1306,7 +1371,6 @@ export default function Dashboard() {
                     </button>
                     <button
                       onClick={() => handleSetMode("romance")}
-                      disabled={isSettingMode}
                       title="Romance Mode: Confident flirty rizz, hard-to-get energy, kisses, sweet nicknames — she's already fallen 😏💋"
                       style={{
                         padding: "5px 10px",
@@ -1327,7 +1391,6 @@ export default function Dashboard() {
 
                   <button
                     onClick={handleToggleAI}
-                    disabled={isTogglingAI}
                     style={{
                       padding: "6px 12px",
                       borderRadius: "8px",
@@ -2041,6 +2104,186 @@ export default function Dashboard() {
                   <span style={{ color: "#a855f7" }}>Profile Effect active</span>
                 </div>
               )}
+
+              {/* ── Avatar & Decoration Switch History (Old Logo ➔ New Logo) ── */}
+              {(() => {
+                const profile = selectedConvo.profile || {};
+                const history = profile.avatar_history || (selectedConvo as any).avatar_history || [];
+                const prevAv = profile.previous_avatar || (selectedConvo as any).previous_avatar;
+                const prevDeco = profile.previous_decoration || (selectedConvo as any).previous_decoration;
+                const currentAv = profile.avatar || selectedConvo.avatar;
+                const currentDeco = profile.avatar_decoration;
+                const hasSwitched = Boolean(prevAv && prevAv !== currentAv) || history.length > 1;
+
+                return (
+                  <div
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: "12px",
+                      backgroundColor: "var(--bg-surface-elevated)",
+                      border: "1px solid var(--border-subtle)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "10px",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: "5px" }}>
+                        <span>🔄</span> Avatar Switch History
+                      </div>
+                      {hasSwitched && (
+                        <span style={{ fontSize: "10px", padding: "1px 6px", borderRadius: "10px", backgroundColor: "rgba(139,92,246,0.15)", color: "#c084fc", fontWeight: "700", border: "1px solid rgba(139,92,246,0.3)" }}>
+                          Switched
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Before & After Comparison Card: Old Logo ➔ New Logo */}
+                    {hasSwitched ? (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-around",
+                          padding: "10px 8px",
+                          borderRadius: "10px",
+                          backgroundColor: "var(--bg-base)",
+                          border: "1px solid rgba(255,255,255,0.06)",
+                        }}
+                      >
+                        {/* Old Logo / Previous DP */}
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+                          <span style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "600" }}>Old Logo</span>
+                          <div style={{ position: "relative", width: "46px", height: "46px" }}>
+                            <div
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                borderRadius: "50%",
+                                overflow: "hidden",
+                                border: "2px dashed rgba(255,255,255,0.2)",
+                                backgroundColor: "rgba(255,255,255,0.04)",
+                              }}
+                            >
+                              {prevAv ? (
+                                <img src={prevAv} alt="Old Logo" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "grayscale(25%)" }} />
+                              ) : (
+                                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", color: "var(--text-muted)" }}>
+                                  Old
+                                </div>
+                              )}
+                            </div>
+                            {prevDeco && (
+                              <img src={prevDeco} alt="Old Deco" style={{ position: "absolute", top: "-14%", left: "-14%", width: "128%", height: "128%", pointerEvents: "none", opacity: 0.7 }} />
+                            )}
+                          </div>
+                          <span style={{ fontSize: "9px", color: "#f87171", fontWeight: "600" }}>Previous</span>
+                        </div>
+
+                        {/* Transition Indicator Arrow */}
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
+                          <div
+                            style={{
+                              width: "28px",
+                              height: "28px",
+                              borderRadius: "50%",
+                              backgroundColor: "rgba(139,92,246,0.15)",
+                              border: "1px solid rgba(139,92,246,0.3)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "14px",
+                              color: "#c084fc",
+                              boxShadow: "0 0 8px rgba(139,92,246,0.2)",
+                            }}
+                          >
+                            ➔
+                          </div>
+                          <span style={{ fontSize: "9px", color: "var(--text-muted)" }}>switched</span>
+                        </div>
+
+                        {/* New Logo / Current DP */}
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+                          <span style={{ fontSize: "10px", color: "#34d399", fontWeight: "700" }}>New Logo</span>
+                          <div style={{ position: "relative", width: "46px", height: "46px" }}>
+                            <div
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                borderRadius: "50%",
+                                overflow: "hidden",
+                                border: "2px solid #10b981",
+                                backgroundColor: "rgba(16,185,129,0.1)",
+                                boxShadow: "0 0 10px rgba(16,185,129,0.3)",
+                              }}
+                            >
+                              {currentAv ? (
+                                <img src={currentAv} alt="New Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                              ) : (
+                                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", fontWeight: "700" }}>
+                                  {selectedConvo.user_name.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                            </div>
+                            {currentDeco && (
+                              <img src={currentDeco} alt="New Deco" style={{ position: "absolute", top: "-14%", left: "-14%", width: "128%", height: "128%", pointerEvents: "none" }} />
+                            )}
+                          </div>
+                          <span style={{ fontSize: "9px", color: "#10b981", fontWeight: "700" }}>Active Now</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 10px", borderRadius: "8px", backgroundColor: "rgba(255,255,255,0.03)" }}>
+                        <span style={{ fontSize: "14px" }}>💾</span>
+                        <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                          Friend DP & avatar decoration are permanently saved. Future switches will show Old Logo ➔ New Logo here!
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Saved Avatar Decoration badge */}
+                    {currentDeco && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "var(--text-muted)", padding: "5px 8px", borderRadius: "6px", backgroundColor: "rgba(255,255,255,0.03)" }}>
+                        <span>🎨</span>
+                        <span>Avatar Deco: <strong style={{ color: "var(--text-primary)" }}>Saved & Preserved</strong></span>
+                      </div>
+                    )}
+
+                    {/* Detailed switch timeline log if multiple */}
+                    {history.length > 1 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "2px" }}>
+                        <span style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: "600" }}>Timeline ({history.length} captured):</span>
+                        <div style={{ display: "flex", gap: "6px", overflowX: "auto", paddingBottom: "4px" }}>
+                          {history.slice(-5).reverse().map((h: any, idx: number) => (
+                            <div
+                              key={idx}
+                              title={`${h.label || "Avatar"} - ${new Date(h.timestamp).toLocaleDateString()}`}
+                              style={{
+                                position: "relative",
+                                width: "32px",
+                                height: "32px",
+                                flexShrink: 0,
+                                borderRadius: "50%",
+                                overflow: "hidden",
+                                border: idx === 0 ? "2px solid #10b981" : "1px solid rgba(255,255,255,0.15)",
+                              }}
+                            >
+                              {h.avatar ? (
+                                <img src={h.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                              ) : (
+                                <div style={{ width: "100%", height: "100%", backgroundColor: "#333", fontSize: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>?</div>
+                              )}
+                              {h.avatar_decoration && (
+                                <img src={h.avatar_decoration} alt="" style={{ position: "absolute", top: "-14%", left: "-14%", width: "128%", height: "128%", pointerEvents: "none" }} />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Channel & Stats */}
               <div

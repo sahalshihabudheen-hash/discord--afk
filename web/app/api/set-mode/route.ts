@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { setChatMode, getGlobalState } from "@/lib/store";
+import { supabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,16 @@ export async function POST(req: Request) {
 
     const updatedMode = setChatMode(user_id, targetMode as any);
     const state = getGlobalState();
+
+    // Persist directly to Supabase so /api/state polling immediately sees updated mode
+    try {
+      await supabase
+        .from("conversations")
+        .update({ chat_mode: updatedMode })
+        .eq("user_id", String(user_id));
+    } catch (dbErr) {
+      console.error("Failed to update chat_mode in Supabase:", dbErr);
+    }
 
     return NextResponse.json({
       success: true,

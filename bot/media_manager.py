@@ -7,6 +7,7 @@ import os
 import base64
 import aiohttp
 import mimetypes
+import hashlib
 from typing import Optional, Dict, Any, List
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -139,3 +140,66 @@ async def process_attachment(attachment_obj_or_url, message_id: str = "") -> Dic
         "is_image": is_image,
         "size": len(data) if data else 0,
     }
+
+
+async def save_avatar_asset(url: str, user_id: str, asset_type: str = "avatar") -> Optional[str]:
+    """
+    Downloads and permanently saves a friend's avatar or avatar decoration.
+    Saves locally into dashboard/static/media/ and web/public/media/ and uploads to Supabase storage.
+    Returns the permanent local_url or cloud_url, falling back to original url.
+    """
+    if not url:
+        return None
+
+    # If it's already a local or permanent URL, return as is
+    if url.startswith("/static/media/") or "/storage/v1/object/public/media/" in url:
+        return url
+
+    ensure_media_dirs()
+
+    # Determine extension from URL
+    url_clean = url.split("?")[0]
+    ext = os.path.splitext(url_clean)[1] or ".png"
+    if ext not in IMAGE_EXTENSIONS:
+        ext = ".png"
+
+    # Create a deterministic hash based on url_clean to avoid redundant downloads
+    url_hash = hashlib.md5(url_clean.encode("utf-8")).hexdigest()[:10]
+    safe_name = f"{asset_type}_{user_id}_{url_hash}{ext}"
+    local_path = os.path.join(STATIC_MEDIA_DIR, safe_name)
+    local_url = f"/static/media/{safe_name}"
+
+    # If already downloaded locally, return local URL
+    if os.path.exists(local_path):
+        return local_url
+
+    data = await download_bytes(url)
+    if not data:
+        return url
+
+    try:
+        with open(local_path, "wb") as f:
+            f.write(data)
+        if os.path.exists(WEB_MEDIA_DIR):
+            web_path = os.path.join(WEB_MEDIA_DIR, safe_name)
+            try:
+                with open(web_path, "wb") as f:
+                    f.write(data)
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"[MediaManager] Error saving avatar asset {safe_name}: {e}")
+        return url
+
+    # Upload to Supabase Storage if configured
+    cloud_url = None
+    try:
+        from bot.supabase_manager import SupabaseManager
+        sb = SupabaseManager()
+        if sb.enabled:
+            content_type = mimetypes.guess_type(safe_name)[0] or "image/png"
+            cloud_url = await sb.upload_media(data, safe_name, content_type)
+    except Exception:
+        pass
+
+    return cloud_url or local_url

@@ -1894,6 +1894,23 @@
     const msgs = (c.messages || []).map(renderMsg).join('');
     const mode = c.chat_mode || 'human';
     const isRomance = mode === 'romance';
+    const prof = c.profile || {};
+    const prevAv = c.previous_avatar || prof.previous_avatar;
+    const curAv = c.avatar || prof.avatar;
+    let avatarSwitchHtml = '';
+    if (prevAv && prevAv !== curAv) {
+      avatarSwitchHtml = `
+        <div style="display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:12px;background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.25);font-size:10px;margin-top:3px;">
+          <span style="color:#f87171;font-weight:600;display:inline-flex;align-items:center;gap:3px;">
+            Old Logo: <img src="${prevAv}" style="width:16px;height:16px;border-radius:50%;object-fit:cover;border:1px dashed #f87171;" />
+          </span>
+          <span style="color:#c084fc;font-weight:bold;">➔</span>
+          <span style="color:#34d399;font-weight:600;display:inline-flex;align-items:center;gap:3px;">
+            New Logo: <img src="${curAv}" style="width:16px;height:16px;border-radius:50%;object-fit:cover;border:1px solid #10b981;" />
+          </span>
+          <span style="color:var(--text-3);font-size:9px;">(Switched DP)</span>
+        </div>`;
+    }
 
     chatArea.innerHTML = `
       <div class="chat-header">
@@ -1904,6 +1921,7 @@
             ${isRomance ? '<span class="romance-pulse-icon" title="Romance Mode Active!">💖</span>' : ''}
           </div>
           <div class="chat-header-sub">${c.total_messages || 0} messages · ${c.ai_replies || 0} AI replies</div>
+          ${avatarSwitchHtml}
         </div>
 
         <div class="chat-header-actions">
@@ -1965,6 +1983,14 @@
 
   async function changeConvoMode(uid, newMode) {
     if (!uid) return;
+    const oldMode = convos[uid] ? convos[uid].chat_mode : 'human';
+    // 1. Instant optimistic update on single click
+    if (convos[uid]) convos[uid].chat_mode = newMode;
+    renderConvoList();
+    if (activeUid === uid) openConvo(uid);
+    const modeNames = { human: '🧑 Human', ai: '🤖 AI', extreme_ai: '🔥 Extreme AI', romance: '💖 Romance' };
+    toast('Mode Updated', `Switched to ${modeNames[newMode] || newMode} mode!`);
+
     try {
       const res = await fetch('/api/set-mode', {
         method: 'POST',
@@ -1972,16 +1998,16 @@
         body: JSON.stringify({ user_id: uid, mode: newMode }),
       });
       const data = await res.json();
-      if (data.success) {
-        if (convos[uid]) convos[uid].chat_mode = newMode;
+      if (!data.success) {
+        if (convos[uid]) convos[uid].chat_mode = oldMode;
         renderConvoList();
         if (activeUid === uid) openConvo(uid);
-        const modeNames = { human: '🧑 Human', ai: '🤖 AI', extreme_ai: '🔥 Extreme AI', romance: '💖 Romance' };
-        toast('Mode Updated', `Switched to ${modeNames[newMode] || newMode} mode!`);
-      } else {
         toast('❌ Mode Update Failed', data.error || 'Failed to update mode', true);
       }
     } catch (e) {
+      if (convos[uid]) convos[uid].chat_mode = oldMode;
+      renderConvoList();
+      if (activeUid === uid) openConvo(uid);
       console.error(e);
       toast('❌ Mode Update Failed', 'Network error', true);
     }
@@ -1996,22 +2022,31 @@
 
   async function toggleConvoAI(uid) {
     if (!uid) return;
+    const oldDisabled = convos[uid] ? !!convos[uid].ai_disabled : false;
+    const nextDisabled = !oldDisabled;
+    // 1. Instant optimistic update on single click
+    if (convos[uid]) convos[uid].ai_disabled = nextDisabled;
+    renderConvoList();
+    if (activeUid === uid) openConvo(uid);
+    toast(nextDisabled ? '⏸️ AI Paused' : '▶️ AI Resumed', nextDisabled ? 'AI replies paused for this user' : 'AI replies active');
+
     try {
       const res = await fetch('/api/toggle-ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: uid }),
+        body: JSON.stringify({ user_id: uid, ai_disabled: nextDisabled }),
       });
       const data = await res.json();
-      if (data.success) {
-        if (convos[uid]) convos[uid].ai_disabled = data.ai_disabled;
+      if (!data.success) {
+        if (convos[uid]) convos[uid].ai_disabled = oldDisabled;
         renderConvoList();
         if (activeUid === uid) openConvo(uid);
-        toast(data.ai_disabled ? '⏸️ AI Paused' : '▶️ AI Resumed', data.ai_disabled ? 'AI will not reply to this user' : 'AI replies active');
-      } else {
         toast('❌ Failed', data.error || 'Failed to toggle AI', true);
       }
     } catch (e) {
+      if (convos[uid]) convos[uid].ai_disabled = oldDisabled;
+      renderConvoList();
+      if (activeUid === uid) openConvo(uid);
       console.error(e);
       toast('❌ Failed', 'Network error', true);
     }
@@ -2165,9 +2200,17 @@
   }
 
   function avEl(c) {
-    return c.avatar
-      ? `<img src="${c.avatar}" alt="" />`
-      : initial(c.user_name);
+    if (!c) return '?';
+    const prof = c.profile || {};
+    const av = c.avatar || prof.avatar;
+    const deco = prof.avatar_decoration || c.avatar_decoration;
+    if (av) {
+      return `<div style="position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+        <img src="${av}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />
+        ${deco ? `<img src="${deco}" alt="" style="position:absolute;top:-14%;left:-14%;width:128%;height:128%;pointer-events:none;" />` : ''}
+      </div>`;
+    }
+    return initial(c.user_name);
   }
 
   function fmtTime(ts) {

@@ -213,7 +213,7 @@ class ConversationStore:
                     return
 
     def update_profile(self, user_id: str, profile_data: Dict[str, Any]):
-        """Update Discord profile metadata for a user."""
+        """Update Discord profile metadata for a user, tracking avatar switches and history."""
         if user_id not in self._store:
             self._store[user_id] = {
                 "user_name": profile_data.get("handle") or user_id,
@@ -224,10 +224,92 @@ class ConversationStore:
                 "ai_replies": 0,
             }
         
-        current_profile = self._store[user_id].setdefault("profile", {})
+        convo = self._store[user_id]
+        current_profile = convo.setdefault("profile", {})
+        
+        old_avatar = current_profile.get("avatar") or convo.get("avatar")
+        old_deco = current_profile.get("avatar_decoration")
+        new_avatar = profile_data.get("avatar")
+        new_deco = profile_data.get("avatar_decoration")
+
+        # Ensure avatar_history list exists
+        history = current_profile.setdefault("avatar_history", [])
+
+        def _clean(u):
+            if not u:
+                return None
+            return u.split("?")[0].rstrip("/")
+
+        now_str = datetime.now().isoformat()
+
+        # Seed original avatar into history if empty
+        if not history and old_avatar:
+            history.append({
+                "avatar": old_avatar,
+                "avatar_decoration": old_deco,
+                "timestamp": current_profile.get("last_updated") or now_str,
+                "label": "Original Avatar",
+            })
+
+        # Detect avatar or decoration change
+        if new_avatar:
+            clean_new = _clean(new_avatar)
+            clean_old = _clean(old_avatar)
+            clean_deco_new = _clean(new_deco)
+            clean_deco_old = _clean(old_deco)
+
+            if old_avatar and clean_new != clean_old:
+                print(f"[Profile] 🔄 User {user_id} switched avatar: {clean_old} -> {clean_new}")
+                current_profile["previous_avatar"] = old_avatar
+                current_profile["previous_decoration"] = old_deco
+                current_profile["avatar_switched_at"] = now_str
+                convo["previous_avatar"] = old_avatar
+                convo["previous_decoration"] = old_deco
+                
+                history.append({
+                    "avatar": new_avatar,
+                    "avatar_decoration": new_deco,
+                    "previous_avatar": old_avatar,
+                    "previous_decoration": old_deco,
+                    "timestamp": now_str,
+                    "label": "Switched Avatar",
+                })
+            elif new_deco and old_deco and clean_deco_new != clean_deco_old:
+                print(f"[Profile] 🎨 User {user_id} updated avatar decoration!")
+                current_profile["previous_decoration"] = old_deco
+                history.append({
+                    "avatar": new_avatar,
+                    "avatar_decoration": new_deco,
+                    "previous_avatar": old_avatar,
+                    "previous_decoration": old_deco,
+                    "timestamp": now_str,
+                    "label": "Updated Decoration",
+                })
+            elif not history:
+                history.append({
+                    "avatar": new_avatar,
+                    "avatar_decoration": new_deco,
+                    "timestamp": now_str,
+                    "label": "Current Avatar",
+                })
+
+        # Keep history to max 25 entries
+        if len(history) > 25:
+            current_profile["avatar_history"] = history[-25:]
+
+        convo["avatar_history"] = current_profile["avatar_history"]
+        if current_profile.get("previous_avatar"):
+            convo["previous_avatar"] = current_profile["previous_avatar"]
+        if current_profile.get("previous_decoration"):
+            convo["previous_decoration"] = current_profile["previous_decoration"]
+
         for k, v in profile_data.items():
             if v is not None:
                 current_profile[k] = v
+
+        if new_avatar:
+            convo["avatar"] = new_avatar
+
         self.save_to_file()
 
     def add_reaction(self, user_id: str, message_id: str, emoji_str: str):
@@ -414,6 +496,10 @@ class ConversationStore:
                     "ai_disabled": data.get("ai_disabled", False),
                     "chat_mode": data.get("chat_mode", "human"),
                     "busy_notice_sent": data.get("busy_notice_sent", False),
+                    "avatar_history": profile.get("avatar_history", []),
+                    "previous_avatar": profile.get("previous_avatar"),
+                    "previous_decoration": profile.get("previous_decoration"),
+                    "avatar_switched_at": profile.get("avatar_switched_at"),
                 }
             )
         result.sort(key=lambda x: x["last_updated"], reverse=True)

@@ -25,6 +25,15 @@ export function saveToFile(state: DashboardState) {
   }
 }
 
+export interface AvatarHistoryEntry {
+  avatar?: string | null;
+  avatar_decoration?: string | null;
+  previous_avatar?: string | null;
+  previous_decoration?: string | null;
+  timestamp: string;
+  label?: string;
+}
+
 export interface UserProfile {
   avatar?: string | null;
   avatar_decoration?: string | null;
@@ -33,6 +42,12 @@ export interface UserProfile {
   custom_status?: string | null;
   bio?: string | null;
   handle?: string;
+  profile_effect?: string | null;
+  nameplate?: string | null;
+  previous_avatar?: string | null;
+  previous_decoration?: string | null;
+  avatar_switched_at?: string | null;
+  avatar_history?: AvatarHistoryEntry[];
 }
 
 export interface Message {
@@ -65,6 +80,10 @@ export interface Conversation {
   messages: Message[];
   ai_disabled?: boolean;
   chat_mode?: "human" | "ai" | "extreme_ai" | "romance";
+  avatar_history?: AvatarHistoryEntry[];
+  previous_avatar?: string | null;
+  previous_decoration?: string | null;
+  avatar_switched_at?: string | null;
 }
 
 export interface RpcConfig {

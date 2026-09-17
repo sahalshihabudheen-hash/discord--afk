@@ -13,7 +13,7 @@ from bot.cloud_sync import CloudSync
 from bot.image_generator import ImageGenerator
 from bot.rpc_manager import RPCManager
 from bot.voice_manager import VoiceManager
-from bot.media_manager import process_attachment
+from bot.media_manager import process_attachment, save_avatar_asset
 
 # Typing delay range (seconds) — lightning fast replies
 TYPING_MIN = 0.2
@@ -116,6 +116,15 @@ class AFKBot(discord.Client):
                 convo_id = str(other_user.id) if other_user else str(channel.id)
                 convo_name = other_user.display_name if other_user else "Friend"
                 convo_avatar = str(other_user.display_avatar.url) if other_user and other_user.display_avatar else None
+                other_deco = str(other_user.avatar_decoration.url) if other_user and getattr(other_user, "avatar_decoration", None) else None
+                if other_user:
+                    self.store.update_profile(convo_id, {
+                        "handle": str(other_user),
+                        "avatar": convo_avatar,
+                        "avatar_decoration": other_deco,
+                    })
+                    if convo_avatar:
+                        asyncio.create_task(self._persist_user_avatar(convo_id, convo_avatar, other_deco, str(other_user)))
 
             existing_convo = self.store.get_conversation(convo_id)
             existing_msg_ids = set()
@@ -356,6 +365,58 @@ class AFKBot(discord.Client):
             print(f"[RPC] Failed to update presence: {e}")
             return False
 
+    async def _persist_user_avatar(self, user_id: str, avatar_url: str = None, avatar_deco: str = None, handle: str = None):
+        """Permanently saves friend's avatar and decoration locally and to Supabase storage, updating profile."""
+        try:
+            saved_updates = {}
+            if avatar_url:
+                saved_av = await save_avatar_asset(avatar_url, user_id, "avatar")
+                if saved_av:
+                    saved_updates["avatar"] = saved_av
+            if avatar_deco:
+                saved_dc = await save_avatar_asset(avatar_deco, user_id, "deco")
+                if saved_dc:
+                    saved_updates["avatar_decoration"] = saved_dc
+            if handle:
+                saved_updates["handle"] = handle
+
+            if saved_updates:
+                self.store.update_profile(user_id, saved_updates)
+                if self.cloud_sync and hasattr(self.cloud_sync, "sync_conversation_fast"):
+                    await self.cloud_sync.sync_conversation_fast(user_id)
+        except Exception as e:
+            print(f"[Avatar Persist] Error saving avatar/deco for {user_id}: {e}")
+
+    async def on_user_update(self, before: discord.User, after: discord.User):
+        """Detect real-time friend avatar, username, and avatar decoration switches."""
+        try:
+            user_id = str(after.id)
+            convo = self.store.get_conversation(user_id)
+            if not convo:
+                return
+
+            before_av = str(before.display_avatar.url) if before.display_avatar else None
+            after_av = str(after.display_avatar.url) if after.display_avatar else None
+            before_deco = str(before.avatar_decoration.url) if getattr(before, "avatar_decoration", None) else None
+            after_deco = str(after.avatar_decoration.url) if getattr(after, "avatar_decoration", None) else None
+
+            # Check if avatar or decoration changed
+            av_changed = (after_av and before_av and after_av.split("?")[0] != before_av.split("?")[0]) or (after_av and not before_av)
+            deco_changed = (after_deco and before_deco and after_deco.split("?")[0] != before_deco.split("?")[0]) or (after_deco and not before_deco)
+
+            if av_changed or deco_changed:
+                print(f"[Discord] 🔄 Friend {after.display_name} switched avatar/decoration! Updating profile history...")
+                self.store.update_profile(user_id, {
+                    "handle": str(after),
+                    "avatar": after_av,
+                    "avatar_decoration": after_deco,
+                })
+                # Asynchronously save permanent assets and sync to cloud
+                asyncio.create_task(self._persist_user_avatar(user_id, after_av, after_deco, str(after)))
+                self.emit("conversations_update", self.store.get_sorted_conversations())
+        except Exception as e:
+            print(f"[User Update Error] {e}")
+
     async def on_voice_state_update(self, member, before: discord.VoiceState, after: discord.VoiceState):
         # Works for both guild Members and User objects (self-bot user accounts)
         member_id = getattr(member, "id", None)
@@ -503,6 +564,10 @@ class AFKBot(discord.Client):
                 "custom_status": custom_status,
             }
         self.store.update_profile(convo_id, profile_to_update)
+        if not is_group and (avatar_url or avatar_deco):
+            asyncio.create_task(self._persist_user_avatar(convo_id, avatar_url, avatar_deco, str(message.author)))
+        elif is_group and convo_avatar:
+            asyncio.create_task(self._persist_user_avatar(convo_id, convo_avatar, None, convo_name))
 
         # Persist incoming message
         self.store.add_message(
