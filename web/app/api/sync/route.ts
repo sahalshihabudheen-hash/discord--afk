@@ -4,6 +4,8 @@ import {
   updateGlobalState,
   getPendingMessages,
   clearPendingMessages,
+  getPendingVoiceMessages,
+  clearPendingVoiceMessages,
   getPendingRpc,
   clearPendingRpc,
   setSyncedGroqKey,
@@ -91,6 +93,10 @@ export async function POST(req: Request) {
     const pending = [...getPendingMessages()];
     clearPendingMessages();
 
+    // Fetch pending voice messages
+    const pendingVoice = [...getPendingVoiceMessages()];
+    clearPendingVoiceMessages();
+
     // Fetch pending music commands
     const pendingMusic = [...getPendingMusicCommands()];
     clearPendingMusicCommands();
@@ -119,6 +125,7 @@ export async function POST(req: Request) {
       chat_modes: chatModes,
       timestamp: new Date().toISOString(),
       pending_messages: pending,
+      pending_voice_messages: pendingVoice,
       pending_music_commands: pendingMusic,
     });
   } catch (error: any) {

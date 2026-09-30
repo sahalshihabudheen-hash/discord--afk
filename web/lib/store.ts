@@ -157,10 +157,16 @@ export interface PendingMessage {
   content: string;
 }
 
+export interface PendingVoiceMessage {
+  user_id: string;
+  text: string;
+}
+
 // Global reference for Node serverless environment
 declare global {
   var __GLOBAL_BOT_STATE: DashboardState | undefined;
   var __PENDING_MESSAGES: PendingMessage[] | undefined;
+  var __PENDING_VOICE_MESSAGES: PendingVoiceMessage[] | undefined;
   var __PENDING_RPC: RpcConfig | null | undefined;
   var __PENDING_MUSIC_COMMANDS: MusicCommand[] | undefined;
   var __PENDING_BUSY_MESSAGE: string | null | undefined;
@@ -219,6 +225,21 @@ export function addPendingMessage(msg: PendingMessage) {
 
 export function clearPendingMessages() {
   global.__PENDING_MESSAGES = [];
+}
+
+export function getPendingVoiceMessages(): PendingVoiceMessage[] {
+  if (!global.__PENDING_VOICE_MESSAGES) {
+    global.__PENDING_VOICE_MESSAGES = [];
+  }
+  return global.__PENDING_VOICE_MESSAGES;
+}
+
+export function addPendingVoiceMessage(msg: PendingVoiceMessage) {
+  getPendingVoiceMessages().push(msg);
+}
+
+export function clearPendingVoiceMessages() {
+  global.__PENDING_VOICE_MESSAGES = [];
 }
 
 export function getPendingMusicCommands(): MusicCommand[] {

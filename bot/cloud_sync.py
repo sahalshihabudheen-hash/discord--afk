@@ -171,6 +171,15 @@ class CloudSync:
                             if user_id and content:
                                 asyncio.create_task(self.bot.send_manual_message(user_id, content))
 
+                    # Process pending voice messages sent from Vercel web app
+                    pending_voice = data.get("pending_voice_messages", [])
+                    if pending_voice and self.bot and hasattr(self.bot, "send_voice_message"):
+                        for vmsg in pending_voice:
+                            user_id = vmsg.get("user_id")
+                            text = vmsg.get("text")
+                            if user_id and text:
+                                asyncio.create_task(self.bot.send_voice_message(user_id, text))
+
                     # Process pending music commands sent from Vercel web app
                     pending_music = data.get("pending_music_commands", [])
                     if pending_music and self.bot and hasattr(self.bot, "execute_music_command"):

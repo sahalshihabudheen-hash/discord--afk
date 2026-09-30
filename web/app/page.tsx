@@ -133,6 +133,8 @@ export default function Dashboard() {
   const [isSending, setIsSending] = useState(false);
   const [aifyInputText, setAifyInputText] = useState("");
   const [isAifying, setIsAifying] = useState(false);
+  const [voiceInputText, setVoiceInputText] = useState("");
+  const [isSendingVoice, setIsSendingVoice] = useState(false);
   const [isTogglingAI, setIsTogglingAI] = useState(false);
   const [isSettingMode, setIsSettingMode] = useState(false);
 
@@ -489,6 +491,31 @@ export default function Dashboard() {
       setIsAifying(false);
     }
   };
+
+  const handleSendVoiceMessage = async () => {
+    if (!voiceInputText.trim() || !selectedUserId || isSendingVoice) return;
+    setIsSendingVoice(true);
+    try {
+      const res = await fetch("/api/send-voice-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: selectedUserId, text: voiceInputText.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setVoiceInputText("");
+        fetchState();
+      } else {
+        alert(`Voice message failed: ${data.error || "Unknown error"}`);
+      }
+    } catch (e) {
+      console.error("Voice send error:", e);
+      alert("Failed to send voice message.");
+    } finally {
+      setIsSendingVoice(false);
+    }
+  };
+
 
   const handleMusicAction = async (
     action: "play" | "pause" | "resume" | "stop" | "volume",
@@ -1881,7 +1908,66 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    {/* ── 2. Manual Send Bar ── */}
+                    {/* ── 2. Jarvis Voice Message Bar ── */}
+                    <div
+                      style={{
+                        padding: "10px 24px 8px",
+                        background: "linear-gradient(135deg, rgba(139,92,246,0.08) 0%, rgba(59,130,246,0.08) 100%)",
+                        borderTop: "1px solid rgba(139,92,246,0.25)",
+                        borderBottom: "1px solid rgba(139,92,246,0.15)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{ fontSize: "12px", fontWeight: 600, color: "#a78bfa" }}>🎙️ Jarvis Voice Message</span>
+                        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>Sends as a Discord voice note</span>
+                      </div>
+                      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                        <input
+                          type="text"
+                          placeholder="Type your message — Jarvis will speak it..."
+                          value={voiceInputText}
+                          onChange={(e) => setVoiceInputText(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleSendVoiceMessage(); }}
+                          disabled={isSendingVoice}
+                          style={{
+                            flex: 1,
+                            padding: "10px 14px",
+                            borderRadius: "8px",
+                            backgroundColor: "rgba(139,92,246,0.07)",
+                            border: "1.5px solid rgba(139,92,246,0.3)",
+                            color: "var(--text-primary)",
+                            fontSize: "13.5px",
+                            outline: "none",
+                          }}
+                        />
+                        <button
+                          onClick={handleSendVoiceMessage}
+                          disabled={isSendingVoice || !voiceInputText.trim()}
+                          style={{
+                            background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "8px",
+                            padding: "0 18px",
+                            height: "38px",
+                            fontWeight: 700,
+                            fontSize: "13px",
+                            cursor: isSendingVoice || !voiceInputText.trim() ? "not-allowed" : "pointer",
+                            opacity: isSendingVoice || !voiceInputText.trim() ? 0.5 : 1,
+                            whiteSpace: "nowrap",
+                            boxShadow: "0 2px 8px rgba(124,58,237,0.35)",
+                            transition: "all 0.2s ease",
+                          }}
+                        >
+                          {isSendingVoice ? "⏳ Queuing..." : "🎙️ Send Voice"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* ── 3. Manual Send Bar ── */}
                     <div
                       style={{
                         display: "flex",
