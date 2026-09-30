@@ -408,7 +408,7 @@ class AFKBot(discord.Client):
                     audio_data = f.read()
 
                 # ── Post to Discord API as voice message ──────────────
-                auth_token = self._connection.token
+                auth_token = self.http.token
                 channel_id = channel.id
 
                 payload_json = {
