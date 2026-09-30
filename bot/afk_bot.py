@@ -30,7 +30,7 @@ class AFKBot(discord.Client):
         self.store = ConversationStore()
         self.rpc_manager = RPCManager()
         self.voice_manager = VoiceManager(self)
-        self.afk_mode: bool = config.get("afk_mode", True)
+        self.afk_mode: bool = self.store.get_afk_mode(config.get("afk_mode", True))
         self.event_callback = event_callback
         self.cloud_sync = CloudSync(
             vercel_url=config.get("vercel_dashboard_url", ""),
@@ -51,6 +51,7 @@ class AFKBot(discord.Client):
 
     def toggle_afk(self, mode: bool):
         self.afk_mode = mode
+        self.store.set_afk_mode(mode)
         status = "ON 🟢" if mode else "OFF 🔴"
         print(f"[AFK] Mode toggled → {status}")
         if mode:
@@ -123,8 +124,8 @@ class AFKBot(discord.Client):
                         "avatar": convo_avatar,
                         "avatar_decoration": other_deco,
                     })
-                    if convo_avatar:
-                        asyncio.create_task(self._persist_user_avatar(convo_id, convo_avatar, other_deco, str(other_user)))
+                    # NOTE: skip _persist_user_avatar during startup scan to avoid
+                    # hammering Discord CDN for all users at once (causes lag).
 
             existing_convo = self.store.get_conversation(convo_id)
             existing_msg_ids = set()
@@ -133,8 +134,9 @@ class AFKBot(discord.Client):
 
             try:
                 messages = []
-                async for msg in channel.history(limit=limit_per_channel, oldest_first=True):
+                async for msg in channel.history(limit=limit_per_channel, oldest_first=False):
                     messages.append(msg)
+                messages.reverse()
 
                 for msg in messages:
                     msg_id_str = str(msg.id)
@@ -294,6 +296,192 @@ class AFKBot(discord.Client):
             print(f"[Manual Send] Failed to send message: {e}")
             return False
 
+    async def send_voice_message(self, user_id: str, text: str) -> dict:
+        """Convert text to Jarvis-style TTS and send as a real Discord voice message."""
+        import tempfile
+        import os
+        import base64
+        import json
+        import math
+        import aiohttp
+
+        # ── Resolve channel ───────────────────────────────────────────
+        convo = self.store.get_conversation(user_id)
+        channel_id_str = convo.get("channel_id") if convo else None
+        channel = None
+        if channel_id_str:
+            try:
+                channel = self.get_channel(int(channel_id_str))
+                if not channel:
+                    channel = await self.fetch_channel(int(channel_id_str))
+            except Exception:
+                pass
+        if not channel:
+            try:
+                user = self.get_user(int(user_id))
+                if not user:
+                    user = await self.fetch_user(int(user_id))
+                if user:
+                    channel = await user.create_dm()
+            except Exception as e:
+                return {"success": False, "error": f"Could not find channel: {e}"}
+        if not channel:
+            return {"success": False, "error": "Channel not found"}
+
+        # ── Generate TTS ──────────────────────────────────────────────
+        try:
+            import edge_tts
+        except ImportError:
+            return {"success": False, "error": "edge_tts not installed. Run: pip install edge-tts"}
+
+        try:
+            import imageio_ffmpeg
+            ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        except Exception:
+            return {"success": False, "error": "ffmpeg not found"}
+
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                mp3_path = os.path.join(tmpdir, "jarvis.mp3")
+                ogg_path = os.path.join(tmpdir, "voice-message.ogg")
+
+                # Jarvis voice: British male, crisp, authoritative
+                communicate = edge_tts.Communicate(
+                    text,
+                    voice="en-GB-RyanNeural",
+                    rate="+0%",
+                    pitch="-5Hz",
+                    volume="+0%",
+                )
+                await communicate.save(mp3_path)
+
+                # Convert MP3 → OGG Opus (Discord requires OGG Opus for voice msgs)
+                proc = await asyncio.create_subprocess_exec(
+                    ffmpeg_exe, "-y", "-i", mp3_path,
+                    "-c:a", "libopus",
+                    "-b:a", "64k",
+                    "-vbr", "on",
+                    "-compression_level", "10",
+                    "-ar", "48000",
+                    "-ac", "1",
+                    ogg_path,
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                _, stderr_data = await proc.communicate()
+
+                if not os.path.exists(ogg_path):
+                    err = stderr_data.decode(errors="ignore")[-400:]
+                    return {"success": False, "error": f"ffmpeg failed: {err}"}
+
+                # ── Get duration ──────────────────────────────────────
+                dur_proc = await asyncio.create_subprocess_exec(
+                    ffmpeg_exe, "-i", ogg_path, "-f", "null", "-",
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                _, dur_err = await dur_proc.communicate()
+                duration_secs = 1.0
+                for line in dur_err.decode(errors="ignore").split("\n"):
+                    if "Duration:" in line:
+                        try:
+                            t = line.split("Duration:")[1].split(",")[0].strip()
+                            h, m, s = t.split(":")
+                            duration_secs = int(h) * 3600 + int(m) * 60 + float(s)
+                        except Exception:
+                            pass
+                        break
+
+                # ── Build waveform (256 smoothed random bytes as b64) ─
+                samples = 256
+                # Generate a natural-looking waveform shape
+                waveform = []
+                for i in range(samples):
+                    # Sin wave envelope with some randomness
+                    phase = i / samples * math.pi
+                    amp = int(255 * abs(math.sin(phase)) * (0.6 + 0.4 * abs(math.sin(i * 0.3))))
+                    waveform.append(min(255, max(0, amp)))
+                waveform_b64 = base64.b64encode(bytes(waveform)).decode()
+
+                # ── Read OGG file ─────────────────────────────────────
+                with open(ogg_path, "rb") as f:
+                    audio_data = f.read()
+
+                # ── Post to Discord API as voice message ──────────────
+                auth_token = self._connection.token
+                channel_id = channel.id
+
+                payload_json = {
+                    "flags": 8192,  # MessageFlags.voice
+                    "channel_id": str(channel_id),
+                    "attachments": [{
+                        "id": "0",
+                        "filename": "voice-message.ogg",
+                        "duration_secs": round(duration_secs, 2),
+                        "waveform": waveform_b64,
+                    }],
+                }
+
+                form = aiohttp.FormData()
+                form.add_field(
+                    "payload_json",
+                    json.dumps(payload_json),
+                    content_type="application/json",
+                )
+                form.add_field(
+                    "files[0]",
+                    audio_data,
+                    filename="voice-message.ogg",
+                    content_type="audio/ogg",
+                )
+
+                headers = {
+                    "Authorization": auth_token,
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/131.0.0.0 Safari/537.36"
+                    ),
+                }
+
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        f"https://discord.com/api/v9/channels/{channel_id}/messages",
+                        data=form,
+                        headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=30),
+                    ) as resp:
+                        resp_body = await resp.json(content_type=None)
+                        if resp.status in (200, 201):
+                            print(f"[Voice] ✅ Sent Jarvis voice msg to {user_id} ({duration_secs:.1f}s)")
+                            # Log in store as assistant message
+                            self.store.add_message(
+                                user_id=user_id,
+                                role="assistant",
+                                content=f"🎙️ [Voice Message]: {text}",
+                                user_name=convo.get("user_name") if convo else None,
+                                channel_id=str(channel_id),
+                            )
+                            self.emit("new_message", {
+                                "user_id": user_id,
+                                "user_name": convo.get("user_name") if convo else user_id,
+                                "content": f"🎙️ [Voice Message]: {text}",
+                                "role": "assistant",
+                                "timestamp": datetime.now().isoformat(),
+                            })
+                            self.emit("stats_update", self.store.get_stats())
+                            if hasattr(self, "cloud_sync"):
+                                asyncio.create_task(self.cloud_sync.sync_conversation_fast(user_id))
+                            return {"success": True, "duration": duration_secs}
+                        else:
+                            err_msg = resp_body.get("message", str(resp_body))
+                            print(f"[Voice] ❌ Discord API error {resp.status}: {err_msg}")
+                            return {"success": False, "error": f"Discord error {resp.status}: {err_msg}"}
+
+        except Exception as e:
+            print(f"[Voice] Exception: {e}")
+            return {"success": False, "error": str(e)}
+
     async def aify_and_process_message(self, user_id: str, prompt: str, should_send: bool = True) -> dict:
         """AI-fy a user-typed draft/intent into persona style and optionally send it.
         Works regardless of whether AI auto-replies or AFK mode are turned ON or OFF."""
@@ -333,9 +521,6 @@ class AFKBot(discord.Client):
 
         # Apply saved custom Discord RPC / status
         await self.apply_rpc()
-
-        # Scan all chats on startup to sync missed messages and update website
-        asyncio.create_task(self.scan_all_chats())
 
         self.emit(
             "bot_ready",

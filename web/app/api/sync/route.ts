@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     }
     
     // Update state from local PC bot
-    updateGlobalState({
+    const updatedState = updateGlobalState({
       owner_name: data.owner_name || "Sahal",
       stats: data.stats || {
         total_conversations: 0,
@@ -56,8 +56,8 @@ export async function POST(req: Request) {
 
     // Also persist to Supabase in background
     try {
-      if (data.conversations && Array.isArray(data.conversations) && data.conversations.length > 0) {
-        const dbRecords = data.conversations.map((c: any) => ({
+      if (updatedState.conversations && Array.isArray(updatedState.conversations) && updatedState.conversations.length > 0) {
+        const dbRecords = updatedState.conversations.map((c: any) => ({
           user_id: String(c.user_id),
           user_name: c.user_name || String(c.user_id),
           channel_id: String(c.channel_id || ""),

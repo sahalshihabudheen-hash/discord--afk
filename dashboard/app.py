@@ -113,6 +113,38 @@ def create_app(config: dict):
             }
         )
 
+    @app.route("/avatars")
+    def avatars_page():
+        return render_template(
+            "avatars.html",
+            owner_name=config.get("your_name", "Sahal"),
+        )
+
+    @app.route("/api/avatars")
+    def get_avatars():
+        """Return all users with their current avatar and avatar_history for the gallery."""
+        bot = state.get("bot")
+        if not bot or not hasattr(bot, "store"):
+            return jsonify({"success": False, "error": "Bot not active", "users": []}), 503
+        convos = bot.store.get_sorted_conversations()
+        users = []
+        for c in convos:
+            profile = c.get("profile") or {}
+            users.append({
+                "user_id": c["user_id"],
+                "user_name": c["user_name"],
+                "avatar": c.get("avatar") or profile.get("avatar"),
+                "avatar_decoration": profile.get("avatar_decoration"),
+                "handle": profile.get("handle") or c["user_name"],
+                "channel_type": c.get("channel_type", "DM"),
+                "total_messages": c.get("total_messages", 0),
+                "last_updated": c.get("last_updated", ""),
+                "avatar_history": profile.get("avatar_history") or c.get("avatar_history") or [],
+                "previous_avatar": profile.get("previous_avatar"),
+                "avatar_switched_at": profile.get("avatar_switched_at"),
+            })
+        return jsonify({"success": True, "users": users})
+
     @app.route("/api/set-busy-message", methods=["POST"])
     def set_busy_message():
         data = request.get_json() or {}
@@ -224,6 +256,31 @@ def create_app(config: dict):
                 return jsonify({"success": False, "error": str(e)}), 500
         else:
             return jsonify({"success": False, "error": "Bot is not active"}), 500
+
+    @app.route("/api/send-voice-message", methods=["POST"])
+    def send_voice_message_route():
+        data = request.get_json() or {}
+        user_id = data.get("user_id")
+        text = data.get("text")
+
+        if not user_id or not text:
+            return jsonify({"success": False, "error": "Missing user_id or text"}), 400
+
+        if state["bot"] is not None:
+            import asyncio
+            fut = asyncio.run_coroutine_threadsafe(
+                state["bot"].send_voice_message(user_id, text),
+                state["bot"].loop
+            )
+            try:
+                result = fut.result(timeout=30)
+                return jsonify(result)
+            except Exception as e:
+                return jsonify({"success": False, "error": str(e)}), 500
+        else:
+            return jsonify({"success": False, "error": "Bot is not active"}), 500
+
+
 
     @app.route("/api/aify-message", methods=["POST"])
     def aify_message_route():

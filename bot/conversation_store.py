@@ -212,6 +212,15 @@ class ConversationStore:
                     self.save_to_file()
                     return
 
+    def get_afk_mode(self, default: bool = True) -> bool:
+        """Get persisted global AFK mode from settings."""
+        return self._settings.get("afk_mode", default)
+
+    def set_afk_mode(self, mode: bool):
+        """Persist global AFK mode so it survives bot restart and page refresh."""
+        self._settings["afk_mode"] = mode
+        self.save_to_file()
+
     def update_profile(self, user_id: str, profile_data: Dict[str, Any]):
         """Update Discord profile metadata for a user, tracking avatar switches and history."""
         if user_id not in self._store:
@@ -228,7 +237,9 @@ class ConversationStore:
         current_profile = convo.setdefault("profile", {})
         
         old_avatar = current_profile.get("avatar") or convo.get("avatar")
+        raw_old_avatar = current_profile.get("raw_avatar")
         old_deco = current_profile.get("avatar_decoration")
+        raw_old_deco = current_profile.get("raw_avatar_decoration")
         new_avatar = profile_data.get("avatar")
         new_deco = profile_data.get("avatar_decoration")
 
@@ -255,10 +266,31 @@ class ConversationStore:
         if new_avatar:
             clean_new = _clean(new_avatar)
             clean_old = _clean(old_avatar)
+            clean_raw_old = _clean(raw_old_avatar)
             clean_deco_new = _clean(new_deco)
             clean_deco_old = _clean(old_deco)
+            clean_raw_deco_old = _clean(raw_old_deco)
 
-            if old_avatar and clean_new != clean_old:
+            # Check if this is the SAME avatar (either matches stored CDN or local asset)
+            is_same_avatar = False
+            if clean_raw_old and clean_new == clean_raw_old:
+                is_same_avatar = True
+            elif clean_old and clean_new == clean_old:
+                is_same_avatar = True
+            elif clean_new and (clean_new.startswith("/static/media/") or "/storage/v1/object/public/media/" in clean_new):
+                is_same_avatar = True  # It's an internal persisted URL update, not a user switch
+
+            is_same_deco = False
+            if not new_deco and not old_deco:
+                is_same_deco = True
+            elif clean_raw_deco_old and clean_deco_new == clean_raw_deco_old:
+                is_same_deco = True
+            elif clean_deco_old and clean_deco_new == clean_deco_old:
+                is_same_deco = True
+            elif clean_deco_new and (clean_deco_new.startswith("/static/media/") or "/storage/v1/object/public/media/" in clean_deco_new):
+                is_same_deco = True
+
+            if old_avatar and not is_same_avatar:
                 print(f"[Profile] 🔄 User {user_id} switched avatar: {clean_old} -> {clean_new}")
                 current_profile["previous_avatar"] = old_avatar
                 current_profile["previous_decoration"] = old_deco
@@ -274,7 +306,9 @@ class ConversationStore:
                     "timestamp": now_str,
                     "label": "Switched Avatar",
                 })
-            elif new_deco and old_deco and clean_deco_new != clean_deco_old:
+                # Update raw_avatar tracking
+                current_profile["raw_avatar"] = new_avatar
+            elif new_deco and old_deco and not is_same_deco:
                 print(f"[Profile] 🎨 User {user_id} updated avatar decoration!")
                 current_profile["previous_decoration"] = old_deco
                 history.append({
@@ -285,6 +319,7 @@ class ConversationStore:
                     "timestamp": now_str,
                     "label": "Updated Decoration",
                 })
+                current_profile["raw_avatar_decoration"] = new_deco
             elif not history:
                 history.append({
                     "avatar": new_avatar,
@@ -292,6 +327,13 @@ class ConversationStore:
                     "timestamp": now_str,
                     "label": "Current Avatar",
                 })
+                if new_avatar and not (new_avatar.startswith("/static/media/") or "/storage/v1/object/public/media/" in new_avatar):
+                    current_profile["raw_avatar"] = new_avatar
+
+            if new_avatar and not (new_avatar.startswith("/static/media/") or "/storage/v1/object/public/media/" in new_avatar):
+                current_profile["raw_avatar"] = new_avatar
+            if new_deco and not (new_deco.startswith("/static/media/") or "/storage/v1/object/public/media/" in new_deco):
+                current_profile["raw_avatar_decoration"] = new_deco
 
         # Keep history to max 25 entries
         if len(history) > 25:

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
 
 interface AvatarHistoryEntry {
   avatar?: string | null;
@@ -702,9 +703,13 @@ export default function Dashboard() {
 
   const handleToggleAFK = async () => {
     if (isToggling || !state) return;
+    const nextMode = !state.afk_mode;
+
+    // ── Instant optimistic update so the button flips immediately ──
+    setState((prev) => (prev ? { ...prev, afk_mode: nextMode } : prev));
     setIsToggling(true);
+
     try {
-      const nextMode = !state.afk_mode;
       const res = await fetch("/api/toggle-afk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -712,10 +717,13 @@ export default function Dashboard() {
       });
       if (res.ok) {
         const resData = await res.json();
+        // Reconcile with server truth
         setState((prev) => (prev ? { ...prev, afk_mode: resData.afk_mode } : prev));
       }
     } catch (e) {
       console.error("Toggle error:", e);
+      // Revert optimistic update on error
+      setState((prev) => (prev ? { ...prev, afk_mode: !nextMode } : prev));
     } finally {
       setIsToggling(false);
     }
@@ -987,6 +995,30 @@ export default function Dashboard() {
             <span style={{ fontSize: "15px" }}>📴</span>
             <span>Busy Auto-Reply</span>
           </button>
+
+          {/* ── Avatars Gallery Button ── */}
+          <Link
+            href="/avatars"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "7px 16px",
+              borderRadius: "20px",
+              backgroundColor: "var(--bg-surface-elevated)",
+              border: "1px solid var(--border-subtle)",
+              color: "var(--text-primary)",
+              fontSize: "13px",
+              fontWeight: "600",
+              textDecoration: "none",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+            title="View everyone's avatar and avatar switch history"
+          >
+            <span style={{ fontSize: "15px" }}>🖼️</span>
+            <span>Avatars</span>
+          </Link>
 
           <button
             onClick={handleToggleAFK}

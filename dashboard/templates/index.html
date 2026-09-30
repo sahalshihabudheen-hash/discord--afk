@@ -648,6 +648,70 @@
       cursor: not-allowed;
     }
 
+    /* ── Jarvis Voice Bar ─────────────────────────── */
+    .chat-voice-bar {
+      padding: 10px 16px;
+      background: linear-gradient(135deg, rgba(139,92,246,0.08) 0%, rgba(59,130,246,0.08) 100%);
+      border-top: 1px solid rgba(139,92,246,0.25);
+      border-bottom: 1px solid rgba(139,92,246,0.15);
+    }
+    .chat-voice-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 7px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #a78bfa;
+      letter-spacing: 0.3px;
+    }
+    .voice-hint {
+      font-weight: 400;
+      color: var(--text-3);
+      font-size: 11px;
+    }
+    .chat-voice-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .chat-voice-input {
+      flex: 1;
+      background: rgba(139,92,246,0.07);
+      border: 1.5px solid rgba(139,92,246,0.3);
+      border-radius: 8px;
+      padding: 8px 13px;
+      color: var(--text-1);
+      font-size: 13.5px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .chat-voice-input::placeholder { color: rgba(139,92,246,0.45); }
+    .chat-voice-input:focus { border-color: #8b5cf6; }
+    .voice-send-btn {
+      background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.2s, transform 0.1s;
+      box-shadow: 0 2px 8px rgba(124,58,237,0.35);
+    }
+    .voice-send-btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+    .voice-send-btn:active:not(:disabled) { transform: translateY(0); }
+    .voice-send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .voice-send-btn.sending {
+      animation: pulse-mic 1s ease-in-out infinite;
+    }
+    @keyframes pulse-mic {
+      0%, 100% { box-shadow: 0 2px 8px rgba(124,58,237,0.35); }
+      50% { box-shadow: 0 2px 20px rgba(124,58,237,0.7); }
+    }
+
     .messages::-webkit-scrollbar { width: 4px; }
     .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
@@ -1290,6 +1354,11 @@
       <span>Busy Auto-Reply</span>
     </button>
 
+    <a href="/avatars" target="_blank" class="rpc-topbar-btn" title="View everyone's avatar and avatar history" style="margin-left: 2px; text-decoration: none;">
+      <span>🖼️</span>
+      <span>Avatars</span>
+    </a>
+
     <div class="afk-btn" id="afkBtn" onclick="toggleAFK()" role="button" aria-pressed="{{ 'true' if afk_mode else 'false' }}">
       <div class="sw" id="sw"><div class="sw-knob"></div></div>
       <span class="afk-text" id="afkText">AFK</span>
@@ -1658,7 +1727,15 @@
     }
     if (data.conversations) {
       data.conversations.forEach(c => {
-        convos[c.user_id] = { ...c, messages: c.messages || [] };
+        // Preserve existing messages if we already have them loaded
+        if (convos[c.user_id]) {
+          const existingMsgs = convos[c.user_id].messages || [];
+          const incomingMsgs = c.messages || [];
+          const mergedMsgs = incomingMsgs.length >= existingMsgs.length ? incomingMsgs : existingMsgs;
+          Object.assign(convos[c.user_id], { ...c, messages: mergedMsgs });
+        } else {
+          convos[c.user_id] = { ...c, messages: c.messages || [] };
+        }
       });
       renderConvoList();
     }
@@ -1768,6 +1845,7 @@
         messages: [], total_messages: 0, ai_replies: 0,
         avatar: data.convo_avatar || data.avatar || null, last_updated: data.timestamp,
         last_message: '', channel_type: data.channel_type || 'DM',
+        ai_disabled: false, chat_mode: 'human',
       };
     }
 
@@ -1797,8 +1875,23 @@
 
   socket.on('conversations_update', list => {
     list.forEach(c => {
-      if (!convos[c.user_id]) convos[c.user_id] = { ...c, messages: [] };
-      else Object.assign(convos[c.user_id], { ...c, messages: convos[c.user_id].messages });
+      if (!convos[c.user_id]) {
+        // New conversation we haven't seen — load fully
+        convos[c.user_id] = { ...c, messages: c.messages || [] };
+      } else {
+        // Existing — carefully merge: keep more messages, never downgrade ai_disabled
+        const existing = convos[c.user_id];
+        const incomingMsgs = c.messages || [];
+        const existingMsgs = existing.messages || [];
+        Object.assign(existing, {
+          ...c,
+          // Keep the larger message array so we don't lose locally-rendered messages
+          messages: incomingMsgs.length >= existingMsgs.length ? incomingMsgs : existingMsgs,
+          // Server ai_disabled is authoritative — always trust it
+          ai_disabled: c.ai_disabled !== undefined ? c.ai_disabled : existing.ai_disabled,
+          chat_mode: c.chat_mode || existing.chat_mode || 'human',
+        });
+      }
     });
     renderConvoList();
   });
@@ -1969,6 +2062,18 @@
             <input type="text" id="aifyMsgInput" class="chat-aify-input" placeholder="Type what you want to say... (AI will rephrase in ${mode} mode)" onkeydown="handleAifyKey(event)" />
             <button id="aifySendBtn" class="aify-send-btn" onclick="sendAifiedMsg(true)" title="AI-fy and send immediately">✨ AI-fy & Send</button>
             <button id="aifyPreviewBtn" class="aify-preview-btn" onclick="sendAifiedMsg(false)" title="Rephrase with AI and put into manual box below">🪄 To Box</button>
+          </div>
+        </div>
+
+        <!-- Voice Message Bar -->
+        <div class="chat-voice-bar">
+          <div class="chat-voice-header">
+            <span>🎙️ Jarvis Voice Message</span>
+            <span class="voice-hint">Sends as a Discord voice note in your voice</span>
+          </div>
+          <div class="chat-voice-row">
+            <input type="text" id="voiceMsgInput" class="chat-voice-input" placeholder="Type your message — Jarvis will speak it..." onkeydown="handleVoiceKey(event)" />
+            <button id="voiceSendBtn" class="voice-send-btn" onclick="sendVoiceMsg()">🎙️ Send Voice</button>
           </div>
         </div>
 
@@ -2310,6 +2415,44 @@
     if (e.key === 'Enter') {
       sendManualMsg();
     }
+  }
+
+  async function sendVoiceMsg() {
+    if (!activeUid) return;
+    const input = document.getElementById('voiceMsgInput');
+    const btn = document.getElementById('voiceSendBtn');
+    const text = input.value.trim();
+    if (!text) return;
+
+    btn.disabled = true;
+    btn.classList.add('sending');
+    btn.textContent = '⏳ Generating...';
+
+    try {
+      const res = await fetch('/api/send-voice-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: activeUid, text }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        input.value = '';
+        const secs = data.duration ? ` (${data.duration.toFixed(1)}s)` : '';
+        toast('🎙️ Voice Sent!', `Jarvis voice message delivered${secs}`);
+      } else {
+        toast('❌ Voice Failed', data.error || 'Could not send voice message', true);
+      }
+    } catch (e) {
+      toast('❌ Voice Failed', 'Network error: ' + e.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('sending');
+      btn.textContent = '🎙️ Send Voice';
+    }
+  }
+
+  function handleVoiceKey(e) {
+    if (e.key === 'Enter') sendVoiceMsg();
   }
 
   // ── Discord RPC & Status Manager Logic ─────────────────────
@@ -2930,7 +3073,15 @@
     }
     if (d.conversations) {
       d.conversations.forEach(c => {
-        convos[c.user_id] = { ...c, messages: c.messages || [] };
+        // Full load from server — includes ai_disabled, chat_mode, messages, etc.
+        if (convos[c.user_id]) {
+          const existingMsgs = convos[c.user_id].messages || [];
+          const incomingMsgs = c.messages || [];
+          const mergedMsgs = incomingMsgs.length >= existingMsgs.length ? incomingMsgs : existingMsgs;
+          Object.assign(convos[c.user_id], { ...c, messages: mergedMsgs });
+        } else {
+          convos[c.user_id] = { ...c, messages: c.messages || [] };
+        }
       });
       renderConvoList();
     }

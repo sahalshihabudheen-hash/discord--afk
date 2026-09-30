@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ owner_name }}'s Avatar Gallery</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-0: #0b0e14;
+      --bg-1: #0f1318;
+      --bg-2: #141920;
+      --bg-3: #1a2030;
+      --border: rgba(255,255,255,0.07);
+      --border-hover: rgba(255,255,255,0.13);
+      --text-1: #edf0f5;
+      --text-2: #8a93a8;
+      --text-3: #4a5568;
+      --accent: #4f8ef7;
+      --accent-dim: rgba(79,142,247,0.12);
+      --green: #34d399;
+      --red: #f87171;
+      --yellow: #fbbf24;
+      --purple: #a78bfa;
+      --r: 10px;
+      --r-lg: 16px;
+      --transition: 0.18s ease;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      min-height: 100%;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-0);
+      color: var(--text-1);
+      font-size: 14px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Topbar ─────────────────────────── */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: var(--bg-1);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 16px;
+      height: 58px;
+      backdrop-filter: blur(12px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--text-1);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .brand-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 12px;
+      color: var(--text-2);
+      cursor: pointer;
+      text-decoration: none;
+      transition: all var(--transition);
+    }
+    .back-btn:hover { border-color: var(--border-hover); color: var(--text-1); background: var(--bg-2); }
+
+    /* ── Search Bar ─────────────────────── */
+    .search-wrap {
+      padding: 28px 28px 16px;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    .search-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .search-box {
+      flex: 1;
+      min-width: 220px;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 10px 16px;
+      color: var(--text-1);
+      font-size: 14px;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    .search-box:focus { border-color: var(--accent); }
+
+    .search-info {
+      font-size: 12px;
+      color: var(--text-3);
+      white-space: nowrap;
+    }
+
+    .filter-btns {
+      display: flex;
+      gap: 6px;
+    }
+
+    .filter-btn {
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .filter-btn:hover { border-color: var(--border-hover); color: var(--text-1); }
+    .filter-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+    /* ── Gallery Grid ───────────────────── */
+    .gallery {
+      padding: 0 28px 40px;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    .users-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 18px;
+    }
+
+    /* ── User Card ──────────────────────── */
+    .user-card {
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      transition: border-color var(--transition), transform var(--transition);
+    }
+    .user-card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-avatar {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 700; color: #fff;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .card-avatar img.main-av {
+      width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+    }
+
+    .card-avatar img.deco-av {
+      position: absolute;
+      top: -14%; left: -14%;
+      width: 128%; height: 128%;
+      pointer-events: none;
+    }
+
+    .card-meta { flex: 1; min-width: 0; }
+    .card-name {
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card-handle {
+      font-size: 11px;
+      color: var(--text-3);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .badge-dm { background: rgba(79,142,247,0.15); color: var(--accent); border: 1px solid rgba(79,142,247,0.3); }
+    .badge-group { background: rgba(167,139,250,0.15); color: var(--purple); border: 1px solid rgba(167,139,250,0.3); }
+
+    .card-stats {
+      padding: 8px 16px;
+      display: flex;
+      gap: 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--text-3);
+    }
+    .card-stats span { display: flex; align-items: center; gap: 4px; }
+
+    /* ── History Section ────────────────── */
+    .history-head {
+      padding: 10px 16px 6px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-3);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .history-scroll {
+      padding: 0 16px 14px;
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      min-height: 72px;
+    }
+    .history-scroll::-webkit-scrollbar { height: 3px; }
+    .history-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .hist-entry {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+    }
+
+    .hist-av {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid var(--border);
+      transition: border-color var(--transition), transform var(--transition);
+      position: relative;
+      background: var(--bg-3);
+    }
+    .hist-av:hover { border-color: var(--accent); transform: scale(1.08); }
+    .hist-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+    .hist-av.current-av {
+      border-color: var(--green);
+      box-shadow: 0 0 8px rgba(52,211,153,0.4);
+    }
+
+    .hist-label {
+      font-size: 9px;
+      color: var(--text-3);
+      text-align: center;
+      max-width: 52px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .hist-label.current-label { color: var(--green); font-weight: 700; }
+
+    .no-history {
+      font-size: 12px;
+      color: var(--text-3);
+      align-self: center;
+      padding: 10px 0;
+    }
+
+    /* ── Lightbox ───────────────────────── */
+    .lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.88);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      backdrop-filter: blur(12px);
+      cursor: pointer;
+    }
+    .lightbox.open { display: flex; }
+    .lightbox img {
+      max-width: min(420px, 90vw);
+      max-height: 80vh;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+      cursor: default;
+    }
+    .lightbox-meta {
+      text-align: center;
+      color: var(--text-2);
+      font-size: 13px;
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 20px; right: 24px;
+      background: var(--bg-2);
+      border: 1px solid var(--border-hover);
+      border-radius: 8px;
+      color: var(--text-1);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 6px 12px;
+      transition: all var(--transition);
+    }
+    .lightbox-close:hover { background: var(--bg-3); }
+
+    /* ── Empty / Loading ────────────────── */
+    .state-box {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-3);
+    }
+    .state-box .icon { font-size: 48px; margin-bottom: 14px; }
+    .state-box .title { font-size: 17px; font-weight: 600; color: var(--text-2); margin-bottom: 8px; }
+    .state-box .sub { font-size: 13px; }
+
+    @media (max-width: 600px) {
+      .search-wrap, .gallery { padding-left: 14px; padding-right: 14px; }
+      .topbar { padding: 0 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Topbar ──────────────────────── -->
+<header class="topbar">
+  <a class="brand" href="/">
+    <div class="brand-icon">🖼️</div>
+    <span>Avatar Gallery</span>
+  </a>
+  <a href="/" class="back-btn">← Back to Dashboard</a>
+  <span id="topbarInfo" style="font-size:12px; color:var(--text-3); margin-left:auto;"></span>
+</header>
+
+<!-- ── Search + Filters ──────────────── -->
+<div class="search-wrap">
+  <div class="search-bar-row">
+    <input id="searchBox" class="search-box" type="text" placeholder="🔍  Search by name or handle..." oninput="filterGallery()" autofocus />
+    <div class="filter-btns">
+      <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+      <button class="filter-btn" onclick="setFilter('dm', this)">DMs</button>
+      <button class="filter-btn" onclick="setFilter('group', this)">Groups</button>
+      <button class="filter-btn" onclick="setFilter('switched', this)">Switched DP</button>
+    </div>
+    <span class="search-info" id="countInfo"></span>
+  </div>
+</div>
+
+<!-- ── Gallery ───────────────────────── -->
+<main class="gallery">
+  <div class="users-grid" id="usersGrid">
+    <div class="state-box" id="loadingState">
+      <div class="icon">⏳</div>
+      <div class="title">Loading avatars...</div>
+      <div class="sub">Fetching data from bot.</div>
+    </div>
+  </div>
+</main>
+
+<!-- ── Lightbox ──────────────────────── -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+  <button class="lightbox-close" onclick="closeLightbox()">✕ Close</button>
+  <img id="lightboxImg" src="" alt="Avatar" onclick="event.stopPropagation()" />
+  <div class="lightbox-meta" id="lightboxMeta"></div>
+</div>
+
+<script>
+  let allUsers = [];
+  let currentFilter = 'all';
+
+  async function loadAvatars() {
+    try {
+      const res = await fetch('/api/avatars');
+      const data = await res.json();
+      if (!data.success) {
+        showError(data.error || 'Bot is not active. Start the bot first.');
+        return;
+      }
+      allUsers = data.users || [];
+      document.getElementById('topbarInfo').textContent = `${allUsers.length} users tracked`;
+      renderGallery();
+    } catch (e) {
+      showError('Could not connect to dashboard. Is the bot running?');
+    }
+  }
+
+  function showError(msg) {
+    document.getElementById('usersGrid').innerHTML = `
+      <div class="state-box">
+        <div class="icon">❌</div>
+        <div class="title">Could not load avatars</div>
+        <div class="sub">${esc(msg)}</div>
+      </div>`;
+  }
+
+  function setFilter(f, btn) {
+    currentFilter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderGallery();
+  }
+
+  function filterGallery() {
+    renderGallery();
+  }
+
+  function renderGallery() {
+    const query = (document.getElementById('searchBox').value || '').toLowerCase().trim();
+    let users = allUsers;
+
+    // Search filter
+    if (query) {
+      users = users.filter(u =>
+        (u.user_name || '').toLowerCase().includes(query) ||
+        (u.handle || '').toLowerCase().includes(query)
+      );
+    }
+
+    // Type filter
+    if (currentFilter === 'dm') {
+      users = users.filter(u => u.channel_type === 'DM');
+    } else if (currentFilter === 'group') {
+      users = users.filter(u => u.channel_type === 'Group DM');
+    } else if (currentFilter === 'switched') {
+      users = users.filter(u => u.previous_avatar && u.previous_avatar !== u.avatar);
+    }
+
+    document.getElementById('countInfo').textContent = `${users.length} shown`;
+
+    const grid = document.getElementById('usersGrid');
+    if (!users.length) {
+      grid.innerHTML = `
+        <div class="state-box">
+          <div class="icon">🔍</div>
+          <div class="title">No results</div>
+          <div class="sub">Try a different search or filter.</div>
+        </div>`;
+      return;
+    }
+
+    grid.innerHTML = users.map(u => renderCard(u)).join('');
+  }
+
+  function renderCard(u) {
+    const isGroup = u.channel_type === 'Group DM';
+    const badgeClass = isGroup ? 'badge-group' : 'badge-dm';
+    const badgeLabel = isGroup ? 'Group DM' : 'DM';
+
+    // Current avatar element
+    let avHtml = '';
+    if (u.avatar) {
+      avHtml = `<img class="main-av" src="${esc(u.avatar)}" alt="" onerror="this.style.display='none'" />`;
+      if (u.avatar_decoration) {
+        avHtml += `<img class="deco-av" src="${esc(u.avatar_decoration)}" alt="" onerror="this.style.display='none'" />`;
+      }
+    } else {
+      avHtml = initial(u.user_name);
+    }
+
+    // History entries
+    const history = u.avatar_history || [];
+    let histHtml = '';
+    if (history.length === 0 && !u.avatar) {
+      histHtml = '<span class="no-history">No avatar recorded</span>';
+    } else {
+      // Build deduplicated history list (current first)
+      const entries = [];
+      // Current avatar as first entry (if exists)
+      if (u.avatar) {
+        entries.push({ url: u.avatar, label: 'Active Now', isCurrent: true });
+      }
+      // Historical entries (newest first, skip duplicates of current)
+      const seen = new Set(u.avatar ? [u.avatar.split('?')[0].rstrip?.('/') || u.avatar.split('?')[0]] : []);
+      const reversed = [...history].reverse();
+      for (const h of reversed) {
+        const av = h.avatar;
+        if (!av) continue;
+        const key = av.split('?')[0];
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const ts = h.timestamp ? new Date(h.timestamp).toLocaleDateString() : '';
+        entries.push({ url: av, label: h.label || ts || 'Past', isCurrent: false, deco: h.avatar_decoration });
+      }
+
+      if (entries.length === 0) {
+        histHtml = '<span class="no-history">No history yet</span>';
+      } else {
+        histHtml = entries.map(e => `
+          <div class="hist-entry" onclick="openLightbox('${esc(e.url)}', '${esc(u.user_name + ' — ' + e.label)}')">
+            <div class="hist-av ${e.isCurrent ? 'current-av' : ''}">
+              <img src="${esc(e.url)}" alt="${esc(e.label)}" onerror="this.parentElement.style.background='#2a2f3a'" loading="lazy" />
+            </div>
+            <span class="hist-label ${e.isCurrent ? 'current-label' : ''}">${esc(e.label)}</span>
+          </div>`).join('');
+      }
+    }
+
+    const switchedBadge = (u.previous_avatar && u.previous_avatar !== u.avatar)
+      ? '<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(167,139,250,0.15);color:var(--purple);border:1px solid rgba(167,139,250,0.3);margin-left:4px;">Switched DP</span>'
+      : '';
+
+    const lastSeen = u.last_updated ? new Date(u.last_updated).toLocaleDateString() : '—';
+    const histCount = (u.avatar_history || []).length;
+
+    return `
+      <div class="user-card" data-uid="${esc(u.user_id)}">
+        <div class="card-header">
+          <div class="card-avatar">${avHtml}</div>
+          <div class="card-meta">
+            <div class="card-name">${esc(u.user_name)}${switchedBadge}</div>
+            <div class="card-handle">${esc(u.handle || u.user_name)}</div>
+          </div>
+          <span class="card-badge ${badgeClass}">${badgeLabel}</span>
+        </div>
+        <div class="card-stats">
+          <span>💬 ${u.total_messages || 0} msgs</span>
+          <span>🕐 ${esc(lastSeen)}</span>
+          <span>🖼️ ${histCount} history</span>
+        </div>
+        <div class="history-head">
+          <span>Avatar History</span>
+          ${histCount > 0 ? `<span style="color:var(--accent);font-weight:600;">${histCount} saved</span>` : ''}
+        </div>
+        <div class="history-scroll">${histHtml}</div>
+      </div>`;
+  }
+
+  // ── Lightbox ──────────────────────────
+  function openLightbox(url, meta) {
+    document.getElementById('lightboxImg').src = url;
+    document.getElementById('lightboxMeta').textContent = meta || '';
+    document.getElementById('lightbox').classList.add('open');
+  }
+
+  function closeLightbox(e) {
+    if (e && e.target !== document.getElementById('lightbox') && e.target.tagName !== 'BUTTON') return;
+    document.getElementById('lightbox').classList.remove('open');
+    document.getElementById('lightboxImg').src = '';
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.getElementById('lightbox').classList.remove('open');
+  });
+
+  // ── Helpers ───────────────────────────
+  function esc(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
+  }
+
+  function initial(name) {
+    return ((name || '?').charAt(0)).toUpperCase();
+  }
+
+  // ── Boot ──────────────────────────────
+  loadAvatars();
+</script>
+</body>
+</html>
